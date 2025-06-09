@@ -43,22 +43,22 @@ class OpenposeEditorNode:
                     {"default": 1.0, "min": 0.0, "max": 10.0, "step": 0.05},
                 ),
                 "shift_x": (
-                    "INT",
+                    "FLOAT",  # Changed from INT to FLOAT
                     {
-                        "default": 0,
-                        "min": -2048,
-                        "max": 2048,
-                        "step": 1,
+                        "default": 0.0,  # Changed to float
+                        "min": -2048.0,  # Changed to float
+                        "max": 2048.0,  # Changed to float
+                        "step": 0.1,  # Changed to a smaller step for finer control
                         "tooltip": "Shift the entire pose horizontally (in pixels)",
                     },
                 ),
                 "shift_y": (
-                    "INT",
+                    "FLOAT",  # Changed from INT to FLOAT
                     {
-                        "default": 0,
-                        "min": -2048,
-                        "max": 2048,
-                        "step": 1,
+                        "default": 0.0,  # Changed to float
+                        "min": -2048.0,  # Changed to float
+                        "max": 2048.0,  # Changed to float
+                        "step": 0.1,  # Changed to a smaller step for finer control
                         "tooltip": "Shift the entire pose vertically (in pixels)",
                     },
                 ),
