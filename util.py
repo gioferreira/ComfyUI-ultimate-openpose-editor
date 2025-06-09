@@ -345,10 +345,17 @@ def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, po
                             for i in range(0, len(face), 3):
                                 if i + 1 < len(face):
                                     p = face[i:i+2]
-                                    # First apply the neck offset to move face with the body
-                                    p_moved = [p[0] + neck_offset[0], p[1] + neck_offset[1]]
+                                    # Calculate the relative position from original neck to face point
+                                    if original_neck:
+                                        relative_x = p[0] - original_neck[0]
+                                        relative_y = p[1] - original_neck[1]
+                                        # Apply the relative position to the new neck location
+                                        p_relative_to_new_neck = [face_pivot[0] + relative_x, face_pivot[1] + relative_y]
+                                    else:
+                                        p_relative_to_new_neck = p
+                                    
                                     # Then apply head scaling around the new neck position
-                                    p_scaled = scale(p_moved, head_scale, face_pivot)
+                                    p_scaled = scale(p_relative_to_new_neck, head_scale, face_pivot)
                                     p_scaled = scale(p_scaled, overall_scale, overall_pivot)
                                     if i + 1 < len(face_scaled):
                                         face_scaled[i:i+2] = p_scaled
@@ -364,10 +371,17 @@ def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, po
                             for i in range(0, len(lhand), 3):
                                 if i + 1 < len(lhand):
                                     p = lhand[i:i+2]
-                                    # First apply the wrist offset to move hand with the arm
-                                    p_moved = [p[0] + left_wrist_offset[0], p[1] + left_wrist_offset[1]]
+                                    # Calculate the relative position from original wrist to hand point
+                                    if original_left_wrist:
+                                        relative_x = p[0] - original_left_wrist[0]
+                                        relative_y = p[1] - original_left_wrist[1]
+                                        # Apply the relative position to the new wrist location
+                                        p_relative_to_new_wrist = [lhand_pivot[0] + relative_x, lhand_pivot[1] + relative_y]
+                                    else:
+                                        p_relative_to_new_wrist = p
+                                    
                                     # Then apply hand scaling around the new wrist position
-                                    p_scaled = scale(p_moved, hands_scale, lhand_pivot)
+                                    p_scaled = scale(p_relative_to_new_wrist, hands_scale, lhand_pivot)
                                     p_scaled = scale(p_scaled, overall_scale, overall_pivot)
                                     if i + 1 < len(lhand_scaled):
                                         lhand_scaled[i:i+2] = p_scaled
@@ -382,10 +396,17 @@ def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, po
                             for i in range(0, len(rhand), 3):
                                 if i + 1 < len(rhand):
                                     p = rhand[i:i+2]
-                                    # First apply the wrist offset to move hand with the arm
-                                    p_moved = [p[0] + right_wrist_offset[0], p[1] + right_wrist_offset[1]]
+                                    # Calculate the relative position from original wrist to hand point
+                                    if original_right_wrist:
+                                        relative_x = p[0] - original_right_wrist[0]
+                                        relative_y = p[1] - original_right_wrist[1]
+                                        # Apply the relative position to the new wrist location
+                                        p_relative_to_new_wrist = [rhand_pivot[0] + relative_x, rhand_pivot[1] + relative_y]
+                                    else:
+                                        p_relative_to_new_wrist = p
+                                    
                                     # Then apply hand scaling around the new wrist position
-                                    p_scaled = scale(p_moved, hands_scale, rhand_pivot)
+                                    p_scaled = scale(p_relative_to_new_wrist, hands_scale, rhand_pivot)
                                     p_scaled = scale(p_scaled, overall_scale, overall_pivot)
                                     if i + 1 < len(rhand_scaled):
                                         rhand_scaled[i:i+2] = p_scaled
