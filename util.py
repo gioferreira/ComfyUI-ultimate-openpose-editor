@@ -361,15 +361,31 @@ def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, po
                                         face_scaled[i:i+2] = p_scaled
                                     f.append(p_scaled)
                             faces.append(f)
-
-                        # Also move head-related body keypoints with the neck offset
-                        if original_neck and (neck_offset[0] != 0 or neck_offset[1] != 0):
-                            head_keypoint_indices = [0, 14, 15, 16, 17]  # nose, eyes, ears
-                            for head_idx in head_keypoint_indices:
-                                i = head_idx * 3
-                                if len(body_scaled) > i + 2 and body_scaled[i+2] > 0:  # valid keypoint
-                                    body_scaled[i] += neck_offset[0]      # x
-                                    body_scaled[i+1] += neck_offset[1]    # y
+                            
+                            # Also move head-related body keypoints to follow the scaled face
+                            if original_neck and len(body_scaled) > 1*3 + 1:
+                                head_keypoint_indices = [0, 14, 15, 16, 17]  # nose, eyes, ears
+                                for head_idx in head_keypoint_indices:
+                                    i = head_idx * 3
+                                    if len(body_scaled) > i + 2 and body_scaled[i+2] > 0:  # valid keypoint
+                                        # Get the original position
+                                        orig_x = body[i] if i < len(body) else 0
+                                        orig_y = body[i+1] if i+1 < len(body) else 0
+                                        
+                                        # Calculate relative position from original neck
+                                        relative_x = orig_x - original_neck[0]
+                                        relative_y = orig_y - original_neck[1]
+                                        
+                                        # Apply to new neck position
+                                        p_relative_to_new_neck = [face_pivot[0] + relative_x, face_pivot[1] + relative_y]
+                                        
+                                        # Apply head scaling
+                                        p_scaled = scale(p_relative_to_new_neck, head_scale, face_pivot)
+                                        p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                        
+                                        # Update the body keypoints
+                                        body_scaled[i] = p_scaled[0]
+                                        body_scaled[i+1] = p_scaled[1]
 
                         # Apply hand scaling with wrist tracking
                         if lhand and isinstance(lhand, list):
