@@ -137,24 +137,39 @@ class AppendageEditorNode:
             pose_data = [pose_data]
 
         pose_count = len(pose_data)
-
-        # Normalize scale parameters to handle lists vs single floats using the original node's methods
+        
+        # Check if any parameters are lists to determine if we need special list handling
         scale_params = [scale, x_offset, y_offset, rotation]
-        output_length = self.determine_output_length(scale_params, pose_count, list_mismatch_behavior)
-
-        scale_list = self.normalize_scale_parameter(scale, output_length, list_mismatch_behavior)
-        x_offset_list = self.normalize_scale_parameter(x_offset, output_length, list_mismatch_behavior)
-        y_offset_list = self.normalize_scale_parameter(y_offset, output_length, list_mismatch_behavior)
-        rotation_list = self.normalize_scale_parameter(rotation, output_length, list_mismatch_behavior)
+        has_list_params = any(isinstance(param, (list, tuple)) for param in scale_params)
+        
+        if has_list_params:
+            # Use the original logic when list parameters are provided
+            output_length = self.determine_output_length(scale_params, pose_count, list_mismatch_behavior)
+            scale_list = self.normalize_scale_parameter(scale, output_length, list_mismatch_behavior)
+            x_offset_list = self.normalize_scale_parameter(x_offset, output_length, list_mismatch_behavior)
+            y_offset_list = self.normalize_scale_parameter(y_offset, output_length, list_mismatch_behavior)
+            rotation_list = self.normalize_scale_parameter(rotation, output_length, list_mismatch_behavior)
+        else:
+            # When all parameters are single values, just process all input frames
+            output_length = pose_count
+            scale_list = [scale] * output_length
+            x_offset_list = [x_offset] * output_length
+            y_offset_list = [y_offset] * output_length
+            rotation_list = [rotation] * output_length
 
         # Process each frame with its corresponding parameter values
         output_pose_data = []
 
         for i in range(output_length):
             # Get the pose data for this index
-            pose_idx = i if i < pose_count else pose_count - 1
-            if list_mismatch_behavior == "loop" and pose_count > 0:
-                pose_idx = i % pose_count
+            if has_list_params:
+                # Use original logic for list parameters
+                pose_idx = i if i < pose_count else pose_count - 1
+                if list_mismatch_behavior == "loop" and pose_count > 0:
+                    pose_idx = i % pose_count
+            else:
+                # When no list parameters, just use the frame index directly
+                pose_idx = i
 
             # Get current frame and parameter values
             current_frame = copy.deepcopy(pose_data[pose_idx])
