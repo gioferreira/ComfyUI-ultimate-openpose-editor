@@ -140,12 +140,12 @@ class AppendageEditorNode:
 
         # Normalize scale parameters to handle lists vs single floats using the original node's methods
         scale_params = [scale, x_offset, y_offset, rotation]
-        output_length = determine_output_length(scale_params, pose_count, list_mismatch_behavior)
+        output_length = self.determine_output_length(scale_params, pose_count, list_mismatch_behavior)
 
-        scale_list = normalize_scale_parameter(scale, output_length, list_mismatch_behavior)
-        x_offset_list = normalize_scale_parameter(x_offset, output_length, list_mismatch_behavior)
-        y_offset_list = normalize_scale_parameter(y_offset, output_length, list_mismatch_behavior)
-        rotation_list = normalize_scale_parameter(rotation, output_length, list_mismatch_behavior)
+        scale_list = self.normalize_scale_parameter(scale, output_length, list_mismatch_behavior)
+        x_offset_list = self.normalize_scale_parameter(x_offset, output_length, list_mismatch_behavior)
+        y_offset_list = self.normalize_scale_parameter(y_offset, output_length, list_mismatch_behavior)
+        rotation_list = self.normalize_scale_parameter(rotation, output_length, list_mismatch_behavior)
 
         # Process each frame with its corresponding parameter values
         output_pose_data = []
@@ -164,14 +164,16 @@ class AppendageEditorNode:
             current_rotation = rotation_list[i]
 
             # Apply transformations to this frame
-            if 'people' in current_frame:
+            if 'people' in current_frame and current_frame['people'] and isinstance(current_frame['people'], list):
                 people_to_edit = range(len(current_frame['people'])) if person_index == -1 else [person_index]
 
                 for person_idx in people_to_edit:
-                    if person_idx >= len(current_frame['people']):
+                    if person_idx >= len(current_frame['people']) or person_idx < -len(current_frame['people']):
                         continue
 
                     person = current_frame['people'][person_idx]
+                    if not person or not isinstance(person, dict):
+                        continue
 
                     if appendage_type in ["left_hand", "right_hand"]:
                         self._edit_hand_appendage(person, appendage_type, current_scale, current_x_offset, current_y_offset, current_rotation, bidirectional_scale)
@@ -190,6 +192,8 @@ class AppendageEditorNode:
             return
 
         keypoints = person[keypoint_field]
+        if not isinstance(keypoints, list) or len(keypoints) < 3:
+            return
 
         # Use wrist (first point) as pivot for hands
         if len(keypoints) >= 3 and keypoints[2] > 0:
@@ -210,6 +214,8 @@ class AppendageEditorNode:
             return
 
         keypoints = person['pose_keypoints_2d']
+        if not isinstance(keypoints, list):
+            return
 
         # Get keypoint indices for the specific appendage
         appendage_indices, pivot_index = self._get_appendage_indices(appendage_type)
@@ -225,8 +231,11 @@ class AppendageEditorNode:
         new_keypoints = keypoints[:]
 
         for i in range(0, len(keypoints), 3):
+            if i + 2 >= len(keypoints):
+                break
+                
             keypoint_idx = i // 3
-            if keypoint_idx in appendage_indices and len(keypoints) > i+2:
+            if keypoint_idx in appendage_indices:
                 x, y, conf = keypoints[i], keypoints[i+1], keypoints[i+2]
 
                 if conf > 0:
@@ -296,14 +305,14 @@ class AppendageEditorNode:
         if pivot_index is not None:
             # Use specific pivot point (e.g., shoulder for upper arm, elbow for forearm)
             i = pivot_index * 3
-            if len(keypoints) > i+2 and keypoints[i+2] > 0:
+            if len(keypoints) > i+2 and i >= 0 and keypoints[i+2] > 0:
                 return [keypoints[i], keypoints[i+1]]
 
         # Fallback to center of mass if pivot point not available
         valid_points = []
         for idx in appendage_indices:
             i = idx * 3
-            if len(keypoints) > i+2 and keypoints[i+2] > 0:
+            if len(keypoints) > i+2 and i >= 0 and keypoints[i+2] > 0:
                 valid_points.append([keypoints[i], keypoints[i+1]])
 
         if not valid_points:
@@ -341,7 +350,7 @@ class AppendageEditorNode:
         """Calculate center of mass from valid keypoints."""
         valid_points = []
         for i in range(0, len(keypoints), 3):
-            if len(keypoints) > i+2 and keypoints[i+2] > 0:
+            if len(keypoints) > i+2 and i >= 0 and keypoints[i+2] > 0:
                 valid_points.append([keypoints[i], keypoints[i+1]])
 
         if not valid_points:
