@@ -133,24 +133,32 @@ def pose_normalized(pose_json):
             for figure in figures:
                 if 'pose_keypoints_2d' in figure:
                     body = figure['pose_keypoints_2d']
-                    for i in range(0, len(body), 3):
-                        body[i] = body[i] / float(W)
-                        body[i+1] = body[i+1] / float(H)
+                    # Add null check before iterating
+                    if body:
+                        for i in range(0, len(body), 3):
+                            body[i] = body[i] / float(W)
+                            body[i+1] = body[i+1] / float(H)
                 if 'face_keypoints_2d' in figure:
                     face = figure['face_keypoints_2d']
-                    for i in range(0, len(face), 3):
-                        face[i] = face[i] / float(W)
-                        face[i+1] = face[i+1] / float(H)
+                    # Add null check before iterating
+                    if face:
+                        for i in range(0, len(face), 3):
+                            face[i] = face[i] / float(W)
+                            face[i+1] = face[i+1] / float(H)
                 if 'hand_left_keypoints_2d' in figure:
                     lhand = figure['hand_left_keypoints_2d']
-                    for i in range(0, len(lhand), 3):
-                        lhand[i] = lhand[i] / float(W)
-                        lhand[i+1] = lhand[i+1] / float(H)
+                    # Add null check before iterating
+                    if lhand:
+                        for i in range(0, len(lhand), 3):
+                            lhand[i] = lhand[i] / float(W)
+                            lhand[i+1] = lhand[i+1] / float(H)
                 if 'hand_right_keypoints_2d' in figure:
                     rhand = figure['hand_right_keypoints_2d']
-                    for i in range(0, len(rhand), 3):
-                        rhand[i] = rhand[i] / float(W)
-                        rhand[i+1] = rhand[i+1] / float(H)
+                    # Add null check before iterating
+                    if rhand:
+                        for i in range(0, len(rhand), 3):
+                            rhand[i] = rhand[i] / float(W)
+                            rhand[i+1] = rhand[i+1] / float(H)
     return json.dumps(images)
 
 def scale(point, scale_factor, pivot):
