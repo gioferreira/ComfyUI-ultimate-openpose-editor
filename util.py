@@ -353,10 +353,9 @@ def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, po
                                         p_relative_to_new_neck = [face_pivot[0] + relative_x, face_pivot[1] + relative_y]
                                     else:
                                         p_relative_to_new_neck = p
-                                    
-                                    # Then apply head scaling around the new neck position
+                                      # Then apply head scaling around the new neck position
                                     p_scaled = scale(p_relative_to_new_neck, head_scale, face_pivot)
-                                    p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                    # Note: overall_scale is not applied here as it's already factored into the neck position
                                     if i + 1 < len(face_scaled):
                                         face_scaled[i:i+2] = p_scaled
                                     f.append(p_scaled)
@@ -381,7 +380,7 @@ def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, po
                                         
                                         # Apply head scaling
                                         p_scaled = scale(p_relative_to_new_neck, head_scale, face_pivot)
-                                        p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                        # Note: overall_scale is not applied here as it's already factored into the neck position
                                         
                                         # Update the body keypoints
                                         body_scaled[i] = p_scaled[0]
@@ -404,10 +403,9 @@ def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, po
                                         p_relative_to_new_wrist = [lhand_pivot[0] + relative_x, lhand_pivot[1] + relative_y]
                                     else:
                                         p_relative_to_new_wrist = p
-                                    
-                                    # Then apply hand scaling around the new wrist position
+                                      # Then apply hand scaling around the new wrist position
                                     p_scaled = scale(p_relative_to_new_wrist, hands_scale, lhand_pivot)
-                                    p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                    # Note: overall_scale is not applied here as it's already factored into the wrist position
                                     if i + 1 < len(lhand_scaled):
                                         lhand_scaled[i:i+2] = p_scaled
                                     lh.append(p_scaled)
@@ -429,10 +427,9 @@ def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, po
                                         p_relative_to_new_wrist = [rhand_pivot[0] + relative_x, rhand_pivot[1] + relative_y]
                                     else:
                                         p_relative_to_new_wrist = p
-                                    
-                                    # Then apply hand scaling around the new wrist position
+                                      # Then apply hand scaling around the new wrist position
                                     p_scaled = scale(p_relative_to_new_wrist, hands_scale, rhand_pivot)
-                                    p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                    # Note: overall_scale is not applied here as it's already factored into the wrist position
                                     if i + 1 < len(rhand_scaled):
                                         rhand_scaled[i:i+2] = p_scaled
                                     rh.append(p_scaled)
