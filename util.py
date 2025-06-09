@@ -279,6 +279,8 @@ def draw_pose_json(
     overall_scalelist,
     auto_fix_connections=True,
     head_alignment="eyes",  # New parameter: "eyes" or "neck"
+    shift_x=0,  # Add shift_x with default value
+    shift_y=0,  # Add shift_y with default value
 ):
     """
     Draw pose JSON with optional automatic hand and head tracking.
@@ -320,6 +322,25 @@ def draw_pose_json(
 
             H = image.get("canvas_height", 768)
             W = image.get("canvas_width", 512)
+
+            # Apply shifts to all keypoints
+            if shift_x != 0 or shift_y != 0:
+                for figure in figures:
+                    if not isinstance(figure, dict):
+                        continue
+                    for keypoint_type in [
+                        "pose_keypoints_2d",
+                        "face_keypoints_2d",
+                        "hand_left_keypoints_2d",
+                        "hand_right_keypoints_2d",
+                    ]:
+                        if keypoint_type in figure and isinstance(
+                            figure[keypoint_type], list
+                        ):
+                            keypoints = figure[keypoint_type]
+                            for i in range(0, len(keypoints), 3):
+                                keypoints[i] += shift_x
+                                keypoints[i + 1] += shift_y
 
             # These lists will store data for the current image
             current_image_candidate_parts = []  # For body keypoints used in drawing

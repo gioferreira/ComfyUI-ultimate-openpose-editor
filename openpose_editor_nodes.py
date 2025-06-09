@@ -42,6 +42,26 @@ class OpenposeEditorNode:
                     "FLOAT",
                     {"default": 1.0, "min": 0.0, "max": 10.0, "step": 0.05},
                 ),
+                "shift_x": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": -2048,
+                        "max": 2048,
+                        "step": 1,
+                        "tooltip": "Shift the entire pose horizontally (in pixels)",
+                    },
+                ),
+                "shift_y": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": -2048,
+                        "max": 2048,
+                        "step": 1,
+                        "tooltip": "Shift the entire pose vertically (in pixels)",
+                    },
+                ),
                 "scalelist_behavior": (
                     ["poses", "images"],
                     {
@@ -97,6 +117,8 @@ class OpenposeEditorNode:
         body_scale,
         head_scale,
         overall_scale,
+        shift_x,
+        shift_y,
         scalelist_behavior,
         match_scalelist_method,
         only_scale_pose_index,
@@ -166,6 +188,8 @@ class OpenposeEditorNode:
                         overall_scalelist,
                         auto_fix_connections,
                         head_alignment,
+                        shift_x,  # Pass shift_x
+                        shift_y,  # Pass shift_y
                     )
                 except Exception as e:
                     print(f"Error processing POSE_KEYPOINT: {e}")
@@ -200,6 +224,8 @@ class OpenposeEditorNode:
                     overall_scalelist,
                     auto_fix_connections,
                     head_alignment,
+                    shift_x,  # Pass shift_x
+                    shift_y,  # Pass shift_y
                 )
 
                 if pose_imgs:
@@ -257,6 +283,8 @@ class OpenposeEditorNode:
                     overall_scalelist,
                     auto_fix_connections,
                     head_alignment,
+                    shift_x,  # Pass shift_x
+                    shift_y,  # Pass shift_y
                 )
 
                 if pose_imgs:
