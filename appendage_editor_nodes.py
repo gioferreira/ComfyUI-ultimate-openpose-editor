@@ -123,6 +123,10 @@ class AppendageEditorNode:
                     "default": True,
                     "tooltip": "Automatically move hands to follow wrist position when editing arms"
                 }),
+                "auto_fix_head": ("BOOLEAN", {
+                    "default": True,
+                    "tooltip": "Automatically move head/face to follow neck position when editing torso/shoulders"
+                }),
             },
         }
 
@@ -131,7 +135,7 @@ class AppendageEditorNode:
     FUNCTION = "edit_appendage"
     CATEGORY = "ultimate-openpose"
 
-    def edit_appendage(self, POSE_KEYPOINT, appendage_type, scale=1.0, x_offset=0.0, y_offset=0.0, rotation=0.0, bidirectional_scale=False, person_index=-1, list_mismatch_behavior="loop", auto_fix_hands=True):
+    def edit_appendage(self, POSE_KEYPOINT, appendage_type, scale=1.0, x_offset=0.0, y_offset=0.0, rotation=0.0, bidirectional_scale=False, person_index=-1, list_mismatch_behavior="loop", auto_fix_hands=True, auto_fix_head=True):
         if POSE_KEYPOINT is None:
             return (None,)
 
@@ -194,19 +198,28 @@ class AppendageEditorNode:
                     if not person or not isinstance(person, dict):
                         continue
 
-                    # Store original wrist positions before editing arms
+                    # Store original positions before editing
                     original_wrists = None
+                    original_neck = None
+                    
                     if auto_fix_hands and self._is_arm_appendage(appendage_type):
                         original_wrists = self._get_wrist_positions(person)
+                    
+                    if auto_fix_head and self._is_torso_appendage(appendage_type):
+                        original_neck = self._get_neck_position(person)
 
+                    # Apply the main transformation
                     if appendage_type in ["left_hand", "right_hand"]:
                         self._edit_hand_appendage(person, appendage_type, current_scale, current_x_offset, current_y_offset, current_rotation, bidirectional_scale)
                     else:
                         self._edit_body_appendage(person, appendage_type, current_scale, current_x_offset, current_y_offset, current_rotation, bidirectional_scale)
 
-                    # Fix hand positions after arm editing
+                    # Fix positions after editing
                     if auto_fix_hands and self._is_arm_appendage(appendage_type) and original_wrists:
                         self._fix_hand_positions(person, original_wrists, appendage_type)
+                    
+                    if auto_fix_head and self._is_torso_appendage(appendage_type) and original_neck:
+                        self._fix_head_position(person, original_neck)
 
             output_pose_data.append(current_frame)
 
@@ -217,6 +230,11 @@ class AppendageEditorNode:
         arm_types = ["left_upper_arm", "left_forearm", "left_full_arm", 
                      "right_upper_arm", "right_forearm", "right_full_arm"]
         return appendage_type in arm_types
+
+    def _is_torso_appendage(self, appendage_type):
+        """Check if the appendage type affects torso/neck (and thus head position)."""
+        torso_types = ["torso", "shoulders"]
+        return appendage_type in torso_types
 
     def _get_wrist_positions(self, person):
         """Get current wrist positions before arm editing."""
@@ -229,6 +247,15 @@ class AppendageEditorNode:
             if len(keypoints) > 4*3 + 2:  # right wrist
                 wrists['right'] = [keypoints[4*3], keypoints[4*3+1], keypoints[4*3+2]]
         return wrists
+
+    def _get_neck_position(self, person):
+        """Get current neck position before torso editing."""
+        if 'pose_keypoints_2d' in person and person['pose_keypoints_2d']:
+            keypoints = person['pose_keypoints_2d']
+            # COCO format: neck = index 1
+            if len(keypoints) > 1*3 + 2:
+                return [keypoints[1*3], keypoints[1*3+1], keypoints[1*3+2]]
+        return None
 
     def _fix_hand_positions(self, person, original_wrists, appendage_type):
         """Adjust hand positions to follow the new wrist positions."""
@@ -278,6 +305,45 @@ class AppendageEditorNode:
                         hand_keypoints[i] += dx      # x
                         hand_keypoints[i+1] += dy    # y
                         # confidence stays the same
+
+    def _fix_head_position(self, person, original_neck):
+        """Adjust head/face position to follow the new neck position."""
+        if 'pose_keypoints_2d' not in person or not person['pose_keypoints_2d']:
+            return
+
+        keypoints = person['pose_keypoints_2d']
+        
+        # Get current neck position
+        if len(keypoints) <= 1*3 + 2:
+            return
+
+        new_neck = [keypoints[1*3], keypoints[1*3+1], keypoints[1*3+2]]
+        
+        # Only proceed if both neck positions are valid
+        if original_neck[2] <= 0 or new_neck[2] <= 0:
+            return
+
+        # Calculate how much the neck moved
+        dx = new_neck[0] - original_neck[0]
+        dy = new_neck[1] - original_neck[1]
+
+        # Apply offset to face keypoints
+        if 'face_keypoints_2d' in person and person['face_keypoints_2d'] and isinstance(person['face_keypoints_2d'], list):
+            face_keypoints = person['face_keypoints_2d']
+            for i in range(0, len(face_keypoints), 3):
+                if i + 2 < len(face_keypoints) and face_keypoints[i+2] > 0:  # valid keypoint
+                    face_keypoints[i] += dx      # x
+                    face_keypoints[i+1] += dy    # y
+                    # confidence stays the same
+
+        # Also move head-related body keypoints (nose, eyes, ears)
+        head_keypoint_indices = [0, 14, 15, 16, 17]  # nose, eyes, ears
+        for head_idx in head_keypoint_indices:
+            i = head_idx * 3
+            if len(keypoints) > i + 2 and keypoints[i+2] > 0:  # valid keypoint
+                keypoints[i] += dx      # x
+                keypoints[i+1] += dy    # y
+                # confidence stays the same
 
     def _edit_hand_appendage(self, person, appendage_type, scale_factor, x_offset, y_offset, rotation, bidirectional_scale):
         """Edit hand appendages using hand keypoints."""
