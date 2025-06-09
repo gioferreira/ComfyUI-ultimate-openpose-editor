@@ -182,6 +182,7 @@ class AppendageEditorNode:
         list_mismatch_behavior="loop",
         auto_fix_hands=True,
         auto_fix_head=True,
+        auto_fix_connections=True,  # Added missing parameter
         head_alignment="eyes",
     ):
         if POSE_KEYPOINT is None:
