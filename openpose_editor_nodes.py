@@ -82,42 +82,72 @@ class OpenposeEditorNode:
         priority output is: POSE_JSON > POSE_KEYPOINT
         priority edit is: POSE_KEYPOINT > POSE_JSON
         '''
+        
+        # Validate and sanitize POSE_JSON input
         if POSE_JSON:
-            POSE_JSON = POSE_JSON.replace("'",'"').replace('None','[]')
-            POSE_PASS = POSE_JSON
+            try:
+                POSE_JSON = POSE_JSON.replace("'",'"').replace('None','[]')
+                # Test if it's valid JSON
+                test_parse = json.loads(POSE_JSON if POSE_JSON.startswith('[') else f'[{POSE_JSON}]')
+                POSE_PASS = POSE_JSON
+            except (json.JSONDecodeError, TypeError) as e:
+                print(f"Invalid POSE_JSON format: {e}")
+                POSE_JSON = None
+                POSE_PASS = None
+                
+        # Validate POSE_KEYPOINT input
+        if POSE_KEYPOINT is not None:
+            if not isinstance(POSE_KEYPOINT, (list, dict)):
+                print("Invalid POSE_KEYPOINT format - must be list or dict")
+                POSE_KEYPOINT = None
+        
+        if POSE_JSON:
             if POSE_KEYPOINT is not None:
-                POSE_PASS = json.dumps(POSE_KEYPOINT,indent=4).replace("'",'"').replace('None','[]')
-                hands_scalelist, body_scalelist, head_scalelist, overall_scalelist = extend_scalelist(
-                    scalelist_behavior, POSE_PASS, hands_scale, body_scale, head_scale, overall_scale,
-                    match_scalelist_method, only_scale_pose_index)
-                pose_imgs, POSE_PASS = draw_pose_json(POSE_PASS, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist)
+                try:
+                    POSE_PASS = json.dumps(POSE_KEYPOINT,indent=4).replace("'",'"').replace('None','[]')
+                    hands_scalelist, body_scalelist, head_scalelist, overall_scalelist = extend_scalelist(
+                        scalelist_behavior, POSE_PASS, hands_scale, body_scale, head_scale, overall_scale,
+                        match_scalelist_method, only_scale_pose_index)
+                    pose_imgs, POSE_PASS = draw_pose_json(POSE_PASS, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist)
+                except Exception as e:
+                    print(f"Error processing POSE_KEYPOINT: {e}")
+                    POSE_PASS = POSE_JSON
 
             # parse the JSON
-            hands_scalelist, body_scalelist, head_scalelist, overall_scalelist = extend_scalelist(
-                scalelist_behavior, POSE_JSON, hands_scale, body_scale, head_scale, overall_scale,
-                match_scalelist_method, only_scale_pose_index)
-            pose_imgs, POSE_JSON_SCALED = draw_pose_json(POSE_JSON, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist)
-            if pose_imgs:
-                pose_imgs_np = np.array(pose_imgs).astype(np.float32) / 255
-                return {
-                    "ui": {"POSE_JSON": [json.dumps(POSE_PASS, indent=4)]},
-                    "result": (torch.from_numpy(pose_imgs_np), POSE_JSON_SCALED, json.dumps(POSE_JSON_SCALED,indent=4))
-                }
+            try:
+                hands_scalelist, body_scalelist, head_scalelist, overall_scalelist = extend_scalelist(
+                    scalelist_behavior, POSE_JSON, hands_scale, body_scale, head_scale, overall_scale,
+                    match_scalelist_method, only_scale_pose_index)
+                pose_imgs, POSE_JSON_SCALED = draw_pose_json(POSE_JSON, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist)
+                
+                if pose_imgs:
+                    pose_imgs_np = np.array(pose_imgs).astype(np.float32) / 255
+                    return {
+                        "ui": {"POSE_JSON": [json.dumps(POSE_PASS if POSE_PASS else POSE_JSON_SCALED, indent=4)]},
+                        "result": (torch.from_numpy(pose_imgs_np), POSE_JSON_SCALED, json.dumps(POSE_JSON_SCALED,indent=4))
+                    }
+            except Exception as e:
+                print(f"Error processing POSE_JSON: {e}")
+                
         elif POSE_KEYPOINT is not None:
-            POSE_JSON = json.dumps(POSE_KEYPOINT,indent=4).replace("'",'"').replace('None','[]')
-            hands_scalelist, body_scalelist, head_scalelist, overall_scalelist = extend_scalelist(
-                scalelist_behavior, POSE_JSON, hands_scale, body_scale, head_scale, overall_scale,
-                match_scalelist_method, only_scale_pose_index)
-            normalized_pose_json = pose_normalized(POSE_JSON)
-            pose_imgs, POSE_SCALED = draw_pose_json(normalized_pose_json, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist)
-            if pose_imgs:
-                pose_imgs_np = np.array(pose_imgs).astype(np.float32) / 255
-                return {
-                    "ui": {"POSE_JSON": [json.dumps(POSE_SCALED, indent=4)]},
-                    "result": (torch.from_numpy(pose_imgs_np), POSE_SCALED, json.dumps(POSE_SCALED, indent=4))
-                }
+            try:
+                POSE_JSON = json.dumps(POSE_KEYPOINT,indent=4).replace("'",'"').replace('None','[]')
+                hands_scalelist, body_scalelist, head_scalelist, overall_scalelist = extend_scalelist(
+                    scalelist_behavior, POSE_JSON, hands_scale, body_scale, head_scale, overall_scale,
+                    match_scalelist_method, only_scale_pose_index)
+                normalized_pose_json = pose_normalized(POSE_JSON)
+                pose_imgs, POSE_SCALED = draw_pose_json(normalized_pose_json, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist)
+                
+                if pose_imgs:
+                    pose_imgs_np = np.array(pose_imgs).astype(np.float32) / 255
+                    return {
+                        "ui": {"POSE_JSON": [json.dumps(POSE_SCALED, indent=4)]},
+                        "result": (torch.from_numpy(pose_imgs_np), POSE_SCALED, json.dumps(POSE_SCALED, indent=4))
+                    }
+            except Exception as e:
+                print(f"Error processing POSE_KEYPOINT: {e}")
 
-        # otherwise output blank images
+        # Fallback: output blank images
         W=512
         H=768
         pose_draw = dict(bodies={'candidate':[], 'subset':[]}, faces=[], hands=[])
@@ -127,11 +157,21 @@ class OpenposeEditorNode:
         W_scaled = resolution_x
         if resolution_x < 64:
             W_scaled = W
-        H_scaled = int(H*(W_scaled*1.0/W))
-        pose_img = [draw_pose(pose_draw, H_scaled, W_scaled, pose_marker_size, face_marker_size, hand_marker_size)]
-        pose_img_np = np.array(pose_img).astype(np.float32) / 255
+        H_scaled = int(H*(W_scaled*1.0/W)) if W > 0 else H
+        
+        try:
+            pose_img = [draw_pose(pose_draw, H_scaled, W_scaled, pose_marker_size, face_marker_size, hand_marker_size)]
+            pose_img_np = np.array(pose_img).astype(np.float32) / 255
 
-        return {
-                "ui": {"POSE_JSON": people},
-                "result": (torch.from_numpy(pose_img_np), people, json.dumps(people))
-        }
+            return {
+                    "ui": {"POSE_JSON": people},
+                    "result": (torch.from_numpy(pose_img_np), people, json.dumps(people))
+            }
+        except Exception as e:
+            print(f"Error creating fallback pose: {e}")
+            # Ultimate fallback - return minimal valid data
+            blank_img = np.zeros((H_scaled, W_scaled, 3), dtype=np.float32)
+            return {
+                "ui": {"POSE_JSON": [json.dumps(people)]},
+                "result": (torch.from_numpy(blank_img[None, ...]), people, json.dumps(people))
+            }
