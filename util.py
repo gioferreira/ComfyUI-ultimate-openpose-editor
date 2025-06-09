@@ -278,6 +278,7 @@ def draw_pose_json(
     head_scalelist,
     overall_scalelist,
     auto_fix_connections=True,
+    head_alignment="eyes",  # New parameter: "eyes" or "neck"
 ):
     """
     Draw pose JSON with optional automatic hand and head tracking.
@@ -287,6 +288,9 @@ def draw_pose_json(
                                    and head to follow neck (or eye-based pivot for head)
                                    when different scales are applied.
                                    If False, uses the original behavior.
+        head_alignment (str): Specifies the head alignment mode when auto_fix_connections is True.
+                              "eyes": Uses eye keypoints as the primary reference for head scaling.
+                              "neck": Uses the neck keypoint as the primary reference for head scaling.
     """
     pose_imgs = []
     pose_scaled = []
@@ -446,117 +450,200 @@ def draw_pose_json(
 
                     # --- Determine Original Head Reference Point (from original_body_keypoints) ---
                     original_head_ref_point = None
-                    # Try midpoint of eyes
+                    if head_alignment == "eyes":
+                        # Try midpoint of eyes
+                        if (
+                            original_body_keypoints
+                            and len(original_body_keypoints) > 14 * 3 + 2
+                            and original_body_keypoints[14 * 3 + 2] > 0
+                            and len(original_body_keypoints) > 15 * 3 + 2
+                            and original_body_keypoints[15 * 3 + 2] > 0
+                        ):
+                            original_head_ref_point = [
+                                (
+                                    original_body_keypoints[14 * 3]
+                                    + original_body_keypoints[15 * 3]
+                                )
+                                / 2,
+                                (
+                                    original_body_keypoints[14 * 3 + 1]
+                                    + original_body_keypoints[15 * 3 + 1]
+                                )
+                                / 2,
+                            ]
+                        # Fallback to REye
+                        elif (
+                            original_body_keypoints
+                            and len(original_body_keypoints) > 14 * 3 + 2
+                            and original_body_keypoints[14 * 3 + 2] > 0
+                        ):
+                            original_head_ref_point = [
+                                original_body_keypoints[14 * 3],
+                                original_body_keypoints[14 * 3 + 1],
+                            ]
+                        # Fallback to LEye
+                        elif (
+                            original_body_keypoints
+                            and len(original_body_keypoints) > 15 * 3 + 2
+                            and original_body_keypoints[15 * 3 + 2] > 0
+                        ):
+                            original_head_ref_point = [
+                                original_body_keypoints[15 * 3],
+                                original_body_keypoints[15 * 3 + 1],
+                            ]
+                        # Fallback to Nose (if eyes not available but alignment is 'eyes')
+                        elif (
+                            original_body_keypoints
+                            and len(original_body_keypoints) > 0 * 3 + 2
+                            and original_body_keypoints[0 * 3 + 2] > 0
+                        ):
+                            original_head_ref_point = [
+                                original_body_keypoints[0 * 3],
+                                original_body_keypoints[0 * 3 + 1],
+                            ]
+                        # Final fallback to Neck if eyes/nose not found
+                        elif original_neck:
+                            original_head_ref_point = original_neck
+                    elif head_alignment == "neck":
+                        # Prioritize Neck
+                        if original_neck:
+                            original_head_ref_point = original_neck
+                        # Fallback to Nose (if neck not available but alignment is 'neck')
+                        elif (
+                            original_body_keypoints
+                            and len(original_body_keypoints) > 0 * 3 + 2
+                            and original_body_keypoints[0 * 3 + 2] > 0
+                        ):
+                            original_head_ref_point = [
+                                original_body_keypoints[0 * 3],
+                                original_body_keypoints[0 * 3 + 1],
+                            ]
+                        # Fallback to midpoint of eyes if neck/nose not available
+                        elif (
+                            original_body_keypoints
+                            and len(original_body_keypoints) > 14 * 3 + 2
+                            and original_body_keypoints[14 * 3 + 2] > 0
+                            and len(original_body_keypoints) > 15 * 3 + 2
+                            and original_body_keypoints[15 * 3 + 2] > 0
+                        ):
+                            original_head_ref_point = [
+                                (
+                                    original_body_keypoints[14 * 3]
+                                    + original_body_keypoints[15 * 3]
+                                )
+                                / 2,
+                                (
+                                    original_body_keypoints[14 * 3 + 1]
+                                    + original_body_keypoints[15 * 3 + 1]
+                                )
+                                / 2,
+                            ]
+
                     if (
-                        original_body_keypoints
-                        and len(original_body_keypoints) > 14 * 3 + 2
-                        and original_body_keypoints[14 * 3 + 2] > 0
-                        and len(original_body_keypoints) > 15 * 3 + 2
-                        and original_body_keypoints[15 * 3 + 2] > 0
-                    ):
-                        original_head_ref_point = [
-                            (
-                                original_body_keypoints[14 * 3]
-                                + original_body_keypoints[15 * 3]
-                            )
-                            / 2,
-                            (
-                                original_body_keypoints[14 * 3 + 1]
-                                + original_body_keypoints[15 * 3 + 1]
-                            )
-                            / 2,
-                        ]
-                    # Fallback to REye
-                    elif (
-                        original_body_keypoints
-                        and len(original_body_keypoints) > 14 * 3 + 2
-                        and original_body_keypoints[14 * 3 + 2] > 0
-                    ):
-                        original_head_ref_point = [
-                            original_body_keypoints[14 * 3],
-                            original_body_keypoints[14 * 3 + 1],
-                        ]
-                    # Fallback to LEye
-                    elif (
-                        original_body_keypoints
-                        and len(original_body_keypoints) > 15 * 3 + 2
-                        and original_body_keypoints[15 * 3 + 2] > 0
-                    ):
-                        original_head_ref_point = [
-                            original_body_keypoints[15 * 3],
-                            original_body_keypoints[15 * 3 + 1],
-                        ]
-                    # Fallback to Nose
-                    elif (
-                        original_body_keypoints
-                        and len(original_body_keypoints) > 0 * 3 + 2
-                        and original_body_keypoints[0 * 3 + 2] > 0
-                    ):
-                        original_head_ref_point = [
-                            original_body_keypoints[0 * 3],
-                            original_body_keypoints[0 * 3 + 1],
-                        ]
-                    # Fallback to Neck
-                    elif original_neck:
-                        original_head_ref_point = original_neck
-                    else:
+                        original_head_ref_point is None
+                    ):  # Default if no valid point found based on mode
                         original_head_ref_point = [0.5, 0.5]
 
                     # --- Determine Head Transform Pivot (from body_scaled_output, i.e., after body/overall scale) ---
                     head_transform_pivot = None
-                    # Try midpoint of scaled eyes
+                    if head_alignment == "eyes":
+                        # Try midpoint of scaled eyes
+                        if (
+                            len(body_scaled_output) > 14 * 3 + 2
+                            and original_body_keypoints[14 * 3 + 2] > 0
+                            and len(body_scaled_output) > 15 * 3 + 2
+                            and original_body_keypoints[15 * 3 + 2] > 0
+                        ):  # Check original confidence
+                            head_transform_pivot = [
+                                (
+                                    body_scaled_output[14 * 3]
+                                    + body_scaled_output[15 * 3]
+                                )
+                                / 2,
+                                (
+                                    body_scaled_output[14 * 3 + 1]
+                                    + body_scaled_output[15 * 3 + 1]
+                                )
+                                / 2,
+                            ]
+                        # Fallback to scaled REye
+                        elif (
+                            len(body_scaled_output) > 14 * 3 + 2
+                            and original_body_keypoints[14 * 3 + 2] > 0
+                        ):
+                            head_transform_pivot = [
+                                body_scaled_output[14 * 3],
+                                body_scaled_output[14 * 3 + 1],
+                            ]
+                        # Fallback to scaled LEye
+                        elif (
+                            len(body_scaled_output) > 15 * 3 + 2
+                            and original_body_keypoints[15 * 3 + 2] > 0
+                        ):
+                            head_transform_pivot = [
+                                body_scaled_output[15 * 3],
+                                body_scaled_output[15 * 3 + 1],
+                            ]
+                        # Fallback to scaled Nose
+                        elif (
+                            len(body_scaled_output) > 0 * 3 + 2
+                            and original_body_keypoints[0 * 3 + 2] > 0
+                        ):
+                            head_transform_pivot = [
+                                body_scaled_output[0 * 3],
+                                body_scaled_output[0 * 3 + 1],
+                            ]
+                        # Fallback to scaled Neck
+                        elif (
+                            len(body_scaled_output) > 1 * 3 + 2
+                            and original_body_keypoints[1 * 3 + 2] > 0
+                        ):
+                            head_transform_pivot = [
+                                body_scaled_output[1 * 3],
+                                body_scaled_output[1 * 3 + 1],
+                            ]
+                    elif head_alignment == "neck":
+                        # Prioritize scaled Neck
+                        if (
+                            len(body_scaled_output) > 1 * 3 + 2
+                            and original_body_keypoints[1 * 3 + 2] > 0
+                        ):
+                            head_transform_pivot = [
+                                body_scaled_output[1 * 3],
+                                body_scaled_output[1 * 3 + 1],
+                            ]
+                        # Fallback to scaled Nose
+                        elif (
+                            len(body_scaled_output) > 0 * 3 + 2
+                            and original_body_keypoints[0 * 3 + 2] > 0
+                        ):
+                            head_transform_pivot = [
+                                body_scaled_output[0 * 3],
+                                body_scaled_output[0 * 3 + 1],
+                            ]
+                        # Fallback to midpoint of scaled eyes
+                        elif (
+                            len(body_scaled_output) > 14 * 3 + 2
+                            and original_body_keypoints[14 * 3 + 2] > 0
+                            and len(body_scaled_output) > 15 * 3 + 2
+                            and original_body_keypoints[15 * 3 + 2] > 0
+                        ):
+                            head_transform_pivot = [
+                                (
+                                    body_scaled_output[14 * 3]
+                                    + body_scaled_output[15 * 3]
+                                )
+                                / 2,
+                                (
+                                    body_scaled_output[14 * 3 + 1]
+                                    + body_scaled_output[15 * 3 + 1]
+                                )
+                                / 2,
+                            ]
+
                     if (
-                        len(body_scaled_output) > 14 * 3 + 2
-                        and original_body_keypoints[14 * 3 + 2] > 0
-                        and len(body_scaled_output) > 15 * 3 + 2
-                        and original_body_keypoints[15 * 3 + 2] > 0
-                    ):  # Check original confidence
-                        head_transform_pivot = [
-                            (body_scaled_output[14 * 3] + body_scaled_output[15 * 3])
-                            / 2,
-                            (
-                                body_scaled_output[14 * 3 + 1]
-                                + body_scaled_output[15 * 3 + 1]
-                            )
-                            / 2,
-                        ]
-                    # Fallback to scaled REye
-                    elif (
-                        len(body_scaled_output) > 14 * 3 + 2
-                        and original_body_keypoints[14 * 3 + 2] > 0
-                    ):
-                        head_transform_pivot = [
-                            body_scaled_output[14 * 3],
-                            body_scaled_output[14 * 3 + 1],
-                        ]
-                    # Fallback to scaled LEye
-                    elif (
-                        len(body_scaled_output) > 15 * 3 + 2
-                        and original_body_keypoints[15 * 3 + 2] > 0
-                    ):
-                        head_transform_pivot = [
-                            body_scaled_output[15 * 3],
-                            body_scaled_output[15 * 3 + 1],
-                        ]
-                    # Fallback to scaled Nose
-                    elif (
-                        len(body_scaled_output) > 0 * 3 + 2
-                        and original_body_keypoints[0 * 3 + 2] > 0
-                    ):
-                        head_transform_pivot = [
-                            body_scaled_output[0 * 3],
-                            body_scaled_output[0 * 3 + 1],
-                        ]
-                    # Fallback to scaled Neck
-                    elif (
-                        len(body_scaled_output) > 1 * 3 + 2
-                        and original_body_keypoints[1 * 3 + 2] > 0
-                    ):
-                        head_transform_pivot = [
-                            body_scaled_output[1 * 3],
-                            body_scaled_output[1 * 3 + 1],
-                        ]
-                    else:
+                        head_transform_pivot is None
+                    ):  # Default if no valid pivot found based on mode
                         head_transform_pivot = [0.5, 0.5]
 
                     # --- Apply head scaling to face keypoints ---

@@ -5,6 +5,7 @@ import torch
 import numpy as np
 from .util import scale
 
+
 class AppendageEditorNode:
     @staticmethod
     def normalize_scale_parameter(scale_param, target_length, behavior):
@@ -72,61 +73,94 @@ class AppendageEditorNode:
         return {
             "required": {
                 "POSE_KEYPOINT": ("POSE_KEYPOINT",),
-                "appendage_type": ([
-                    "left_upper_arm", "left_forearm", "left_full_arm",
-                    "right_upper_arm", "right_forearm", "right_full_arm",
-                    "left_upper_leg", "left_lower_leg", "left_full_leg",
-                    "right_upper_leg", "right_lower_leg", "right_full_leg",
-                    "left_hand", "right_hand", "left_foot", "right_foot",
-                    "torso", "shoulders"
-                ], {
-                    "default": "left_upper_arm"
-                }),
+                "appendage_type": (
+                    [
+                        "left_upper_arm",
+                        "left_forearm",
+                        "left_full_arm",
+                        "right_upper_arm",
+                        "right_forearm",
+                        "right_full_arm",
+                        "left_upper_leg",
+                        "left_lower_leg",
+                        "left_full_leg",
+                        "right_upper_leg",
+                        "right_lower_leg",
+                        "right_full_leg",
+                        "left_hand",
+                        "right_hand",
+                        "left_foot",
+                        "right_foot",
+                        "torso",
+                        "shoulders",
+                    ],
+                    {"default": "left_upper_arm"},
+                ),
             },
             "optional": {
-                "scale": ("FLOAT", {
-                    "default": 1.0,
-                    "min": 0.0,
-                    "max": 10.0,
-                    "step": 0.05
-                }),
-                "x_offset": ("FLOAT", {
-                    "default": 0.0,
-                    "min": -2.0,
-                    "max": 2.0,
-                    "step": 0.01
-                }),
-                "y_offset": ("FLOAT", {
-                    "default": 0.0,
-                    "min": -2.0,
-                    "max": 2.0,
-                    "step": 0.01
-                }),
-                "rotation": ("FLOAT", {
-                    "default": 0.0,
-                    "min": -180.0,
-                    "max": 180.0,
-                    "step": 1.0
-                }),
-                "bidirectional_scale": ("BOOLEAN", {
-                    "default": False,
-                    "tooltip": "If true, scales in both directions from pivot. If false, only scales away from body to prevent cannibalizing adjacent parts."
-                }),
-                "person_index": ("INT", {
-                    "default": -1,
-                    "min": -1,
-                    "max": 100,
-                    "tooltip": "Person to edit (-1 for all people)"
-                }),
-                "list_mismatch_behavior": (["truncate", "loop", "repeat"], {"default": "loop", "tooltip": "Truncate: Truncate the list to the shortest length. Loop: Loop the list to the longest length. Repeat: Repeat the list to the longest length."}),
-                "auto_fix_hands": ("BOOLEAN", {
-                    "default": True,
-                    "tooltip": "Automatically move hands to follow wrist position when editing arms"
-                }),
-                "auto_fix_head": ("BOOLEAN", {
-                    "default": True,
-                    "tooltip": "Automatically move head/face to follow neck position when editing torso/shoulders"
-                }),
+                "scale": (
+                    "FLOAT",
+                    {"default": 1.0, "min": 0.0, "max": 10.0, "step": 0.05},
+                ),
+                "x_offset": (
+                    "FLOAT",
+                    {"default": 0.0, "min": -2.0, "max": 2.0, "step": 0.01},
+                ),
+                "y_offset": (
+                    "FLOAT",
+                    {"default": 0.0, "min": -2.0, "max": 2.0, "step": 0.01},
+                ),
+                "rotation": (
+                    "FLOAT",
+                    {"default": 0.0, "min": -180.0, "max": 180.0, "step": 1.0},
+                ),
+                "bidirectional_scale": (
+                    "BOOLEAN",
+                    {
+                        "default": False,
+                        "tooltip": "If true, scales in both directions from pivot. If false, only scales away from body to prevent cannibalizing adjacent parts.",
+                    },
+                ),
+                "person_index": (
+                    "INT",
+                    {
+                        "default": -1,
+                        "min": -1,
+                        "max": 100,
+                        "tooltip": "Person to edit (-1 for all people)",
+                    },
+                ),
+                "list_mismatch_behavior": (
+                    ["truncate", "loop", "repeat"],
+                    {
+                        "default": "loop",
+                        "tooltip": "Truncate: Truncate the list to the shortest length. Loop: Loop the list to the longest length. Repeat: Repeat the list to the longest length.",
+                    },
+                ),
+                "auto_fix_hands": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": "Automatically move hands to follow wrist position when editing arms",
+                    },
+                ),
+                "auto_fix_head": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": "Automatically move head/face to follow neck position when editing torso/shoulders",
+                    },
+                ),
+                "auto_fix_connections": ("BOOLEAN", {"default": True}),
+                "head_alignment": (["eyes", "neck"], {"default": "eyes"}),
+                "resolution_x": (
+                    "INT",
+                    {"default": 512, "min": 64, "max": 8192, "step": 64},
+                ),
+                "pose_marker_size": (
+                    "INT",
+                    {"default": 4, "min": 0, "max": 20, "step": 1},
+                ),
             },
         }
 
@@ -135,7 +169,21 @@ class AppendageEditorNode:
     FUNCTION = "edit_appendage"
     CATEGORY = "ultimate-openpose"
 
-    def edit_appendage(self, POSE_KEYPOINT, appendage_type, scale=1.0, x_offset=0.0, y_offset=0.0, rotation=0.0, bidirectional_scale=False, person_index=-1, list_mismatch_behavior="loop", auto_fix_hands=True, auto_fix_head=True):
+    def edit_appendage(
+        self,
+        POSE_KEYPOINT,
+        appendage_type,
+        scale=1.0,
+        x_offset=0.0,
+        y_offset=0.0,
+        rotation=0.0,
+        bidirectional_scale=False,
+        person_index=-1,
+        list_mismatch_behavior="loop",
+        auto_fix_hands=True,
+        auto_fix_head=True,
+        head_alignment="eyes",
+    ):
         if POSE_KEYPOINT is None:
             return (None,)
 
@@ -145,18 +193,30 @@ class AppendageEditorNode:
             pose_data = [pose_data]
 
         pose_count = len(pose_data)
-        
+
         # Check if any parameters are lists to determine if we need special list handling
         scale_params = [scale, x_offset, y_offset, rotation]
-        has_list_params = any(isinstance(param, (list, tuple)) for param in scale_params)
-        
+        has_list_params = any(
+            isinstance(param, (list, tuple)) for param in scale_params
+        )
+
         if has_list_params:
             # Use the original logic when list parameters are provided
-            output_length = self.determine_output_length(scale_params, pose_count, list_mismatch_behavior)
-            scale_list = self.normalize_scale_parameter(scale, output_length, list_mismatch_behavior)
-            x_offset_list = self.normalize_scale_parameter(x_offset, output_length, list_mismatch_behavior)
-            y_offset_list = self.normalize_scale_parameter(y_offset, output_length, list_mismatch_behavior)
-            rotation_list = self.normalize_scale_parameter(rotation, output_length, list_mismatch_behavior)
+            output_length = self.determine_output_length(
+                scale_params, pose_count, list_mismatch_behavior
+            )
+            scale_list = self.normalize_scale_parameter(
+                scale, output_length, list_mismatch_behavior
+            )
+            x_offset_list = self.normalize_scale_parameter(
+                x_offset, output_length, list_mismatch_behavior
+            )
+            y_offset_list = self.normalize_scale_parameter(
+                y_offset, output_length, list_mismatch_behavior
+            )
+            rotation_list = self.normalize_scale_parameter(
+                rotation, output_length, list_mismatch_behavior
+            )
         else:
             # When all parameters are single values, just process all input frames
             output_length = pose_count
@@ -187,38 +247,74 @@ class AppendageEditorNode:
             current_rotation = rotation_list[i]
 
             # Apply transformations to this frame
-            if 'people' in current_frame and current_frame['people'] and isinstance(current_frame['people'], list):
-                people_to_edit = range(len(current_frame['people'])) if person_index == -1 else [person_index]
+            if (
+                "people" in current_frame
+                and current_frame["people"]
+                and isinstance(current_frame["people"], list)
+            ):
+                people_to_edit = (
+                    range(len(current_frame["people"]))
+                    if person_index == -1
+                    else [person_index]
+                )
 
                 for person_idx in people_to_edit:
-                    if person_idx >= len(current_frame['people']) or person_idx < -len(current_frame['people']):
+                    if person_idx >= len(current_frame["people"]) or person_idx < -len(
+                        current_frame["people"]
+                    ):
                         continue
 
-                    person = current_frame['people'][person_idx]
+                    person = current_frame["people"][person_idx]
                     if not person or not isinstance(person, dict):
                         continue
 
                     # Store original positions before editing
                     original_wrists = None
                     original_neck = None
-                    
+
                     if auto_fix_hands and self._is_arm_appendage(appendage_type):
                         original_wrists = self._get_wrist_positions(person)
-                    
+
                     if auto_fix_head and self._is_torso_appendage(appendage_type):
                         original_neck = self._get_neck_position(person)
 
                     # Apply the main transformation
                     if appendage_type in ["left_hand", "right_hand"]:
-                        self._edit_hand_appendage(person, appendage_type, current_scale, current_x_offset, current_y_offset, current_rotation, bidirectional_scale)
+                        self._edit_hand_appendage(
+                            person,
+                            appendage_type,
+                            current_scale,
+                            current_x_offset,
+                            current_y_offset,
+                            current_rotation,
+                            bidirectional_scale,
+                        )
                     else:
-                        self._edit_body_appendage(person, appendage_type, current_scale, current_x_offset, current_y_offset, current_rotation, bidirectional_scale)
+                        self._edit_body_appendage(
+                            person,
+                            appendage_type,
+                            current_scale,
+                            current_x_offset,
+                            current_y_offset,
+                            current_rotation,
+                            bidirectional_scale,
+                        )
 
                     # Fix positions after editing
-                    if auto_fix_hands and self._is_arm_appendage(appendage_type) and original_wrists:
-                        self._fix_hand_positions(person, original_wrists, appendage_type)
-                    
-                    if auto_fix_head and self._is_torso_appendage(appendage_type) and original_neck:
+                    if (
+                        auto_fix_hands
+                        and self._is_arm_appendage(appendage_type)
+                        and original_wrists
+                    ):
+                        self._fix_hand_positions(
+                            person, original_wrists, appendage_type
+                        )
+
+                    if (
+                        auto_fix_head
+                        and self._is_torso_appendage(appendage_type)
+                        and original_neck
+                    ):
                         self._fix_head_position(person, original_neck)
 
             output_pose_data.append(current_frame)
@@ -227,8 +323,14 @@ class AppendageEditorNode:
 
     def _is_arm_appendage(self, appendage_type):
         """Check if the appendage type affects arms (and thus wrist positions)."""
-        arm_types = ["left_upper_arm", "left_forearm", "left_full_arm", 
-                     "right_upper_arm", "right_forearm", "right_full_arm"]
+        arm_types = [
+            "left_upper_arm",
+            "left_forearm",
+            "left_full_arm",
+            "right_upper_arm",
+            "right_forearm",
+            "right_full_arm",
+        ]
         return appendage_type in arm_types
 
     def _is_torso_appendage(self, appendage_type):
@@ -239,56 +341,68 @@ class AppendageEditorNode:
     def _get_wrist_positions(self, person):
         """Get current wrist positions before arm editing."""
         wrists = {}
-        if 'pose_keypoints_2d' in person and person['pose_keypoints_2d']:
-            keypoints = person['pose_keypoints_2d']
+        if "pose_keypoints_2d" in person and person["pose_keypoints_2d"]:
+            keypoints = person["pose_keypoints_2d"]
             # COCO format: left wrist = index 7, right wrist = index 4
-            if len(keypoints) > 7*3 + 2:  # left wrist
-                wrists['left'] = [keypoints[7*3], keypoints[7*3+1], keypoints[7*3+2]]
-            if len(keypoints) > 4*3 + 2:  # right wrist
-                wrists['right'] = [keypoints[4*3], keypoints[4*3+1], keypoints[4*3+2]]
+            if len(keypoints) > 7 * 3 + 2:  # left wrist
+                wrists["left"] = [
+                    keypoints[7 * 3],
+                    keypoints[7 * 3 + 1],
+                    keypoints[7 * 3 + 2],
+                ]
+            if len(keypoints) > 4 * 3 + 2:  # right wrist
+                wrists["right"] = [
+                    keypoints[4 * 3],
+                    keypoints[4 * 3 + 1],
+                    keypoints[4 * 3 + 2],
+                ]
         return wrists
 
     def _get_neck_position(self, person):
         """Get current neck position before torso editing."""
-        if 'pose_keypoints_2d' in person and person['pose_keypoints_2d']:
-            keypoints = person['pose_keypoints_2d']
+        if "pose_keypoints_2d" in person and person["pose_keypoints_2d"]:
+            keypoints = person["pose_keypoints_2d"]
             # COCO format: neck = index 1
-            if len(keypoints) > 1*3 + 2:
-                return [keypoints[1*3], keypoints[1*3+1], keypoints[1*3+2]]
+            if len(keypoints) > 1 * 3 + 2:
+                return [keypoints[1 * 3], keypoints[1 * 3 + 1], keypoints[1 * 3 + 2]]
         return None
 
     def _fix_hand_positions(self, person, original_wrists, appendage_type):
         """Adjust hand positions to follow the new wrist positions."""
-        if 'pose_keypoints_2d' not in person or not person['pose_keypoints_2d']:
+        if "pose_keypoints_2d" not in person or not person["pose_keypoints_2d"]:
             return
 
-        keypoints = person['pose_keypoints_2d']
-        
+        keypoints = person["pose_keypoints_2d"]
+
         # Determine which hands to fix based on appendage type
         hands_to_fix = []
-        if 'left' in appendage_type:
-            hands_to_fix.append('left')
-        elif 'right' in appendage_type:
-            hands_to_fix.append('right')
+        if "left" in appendage_type:
+            hands_to_fix.append("left")
+        elif "right" in appendage_type:
+            hands_to_fix.append("right")
         else:
             # For general arm types that might affect both sides
-            hands_to_fix = ['left', 'right']
+            hands_to_fix = ["left", "right"]
 
         for hand_side in hands_to_fix:
             if hand_side not in original_wrists:
                 continue
 
             # Get the wrist index for this side
-            wrist_idx = 7 if hand_side == 'left' else 4
-            hand_field = f'hand_{hand_side}_keypoints_2d'
-            
-            if len(keypoints) <= wrist_idx*3 + 2:
+            wrist_idx = 7 if hand_side == "left" else 4
+            hand_field = f"hand_{hand_side}_keypoints_2d"
+
+            if len(keypoints) <= wrist_idx * 3 + 2:
                 continue
 
             # Calculate how much the wrist moved
             original_wrist = original_wrists[hand_side]
-            new_wrist = [keypoints[wrist_idx*3], keypoints[wrist_idx*3+1], keypoints[wrist_idx*3+2]]
-            
+            new_wrist = [
+                keypoints[wrist_idx * 3],
+                keypoints[wrist_idx * 3 + 1],
+                keypoints[wrist_idx * 3 + 2],
+            ]
+
             # Only proceed if both wrists are valid (confidence > 0)
             if original_wrist[2] <= 0 or new_wrist[2] <= 0:
                 continue
@@ -298,27 +412,33 @@ class AppendageEditorNode:
             dy = new_wrist[1] - original_wrist[1]
 
             # Apply offset to hand keypoints
-            if hand_field in person and person[hand_field] and isinstance(person[hand_field], list):
+            if (
+                hand_field in person
+                and person[hand_field]
+                and isinstance(person[hand_field], list)
+            ):
                 hand_keypoints = person[hand_field]
                 for i in range(0, len(hand_keypoints), 3):
-                    if i + 2 < len(hand_keypoints) and hand_keypoints[i+2] > 0:  # valid keypoint
-                        hand_keypoints[i] += dx      # x
-                        hand_keypoints[i+1] += dy    # y
+                    if (
+                        i + 2 < len(hand_keypoints) and hand_keypoints[i + 2] > 0
+                    ):  # valid keypoint
+                        hand_keypoints[i] += dx  # x
+                        hand_keypoints[i + 1] += dy  # y
                         # confidence stays the same
 
     def _fix_head_position(self, person, original_neck):
         """Adjust head/face position to follow the new neck position."""
-        if 'pose_keypoints_2d' not in person or not person['pose_keypoints_2d']:
+        if "pose_keypoints_2d" not in person or not person["pose_keypoints_2d"]:
             return
 
-        keypoints = person['pose_keypoints_2d']
-        
+        keypoints = person["pose_keypoints_2d"]
+
         # Get current neck position
-        if len(keypoints) <= 1*3 + 2:
+        if len(keypoints) <= 1 * 3 + 2:
             return
 
-        new_neck = [keypoints[1*3], keypoints[1*3+1], keypoints[1*3+2]]
-        
+        new_neck = [keypoints[1 * 3], keypoints[1 * 3 + 1], keypoints[1 * 3 + 2]]
+
         # Only proceed if both neck positions are valid
         if original_neck[2] <= 0 or new_neck[2] <= 0:
             return
@@ -328,26 +448,45 @@ class AppendageEditorNode:
         dy = new_neck[1] - original_neck[1]
 
         # Apply offset to face keypoints
-        if 'face_keypoints_2d' in person and person['face_keypoints_2d'] and isinstance(person['face_keypoints_2d'], list):
-            face_keypoints = person['face_keypoints_2d']
+        if (
+            "face_keypoints_2d" in person
+            and person["face_keypoints_2d"]
+            and isinstance(person["face_keypoints_2d"], list)
+        ):
+            face_keypoints = person["face_keypoints_2d"]
             for i in range(0, len(face_keypoints), 3):
-                if i + 2 < len(face_keypoints) and face_keypoints[i+2] > 0:  # valid keypoint
-                    face_keypoints[i] += dx      # x
-                    face_keypoints[i+1] += dy    # y
+                if (
+                    i + 2 < len(face_keypoints) and face_keypoints[i + 2] > 0
+                ):  # valid keypoint
+                    face_keypoints[i] += dx  # x
+                    face_keypoints[i + 1] += dy  # y
                     # confidence stays the same
 
         # Also move head-related body keypoints (nose, eyes, ears)
         head_keypoint_indices = [0, 14, 15, 16, 17]  # nose, eyes, ears
         for head_idx in head_keypoint_indices:
             i = head_idx * 3
-            if len(keypoints) > i + 2 and keypoints[i+2] > 0:  # valid keypoint
-                keypoints[i] += dx      # x
-                keypoints[i+1] += dy    # y
+            if len(keypoints) > i + 2 and keypoints[i + 2] > 0:  # valid keypoint
+                keypoints[i] += dx  # x
+                keypoints[i + 1] += dy  # y
                 # confidence stays the same
 
-    def _edit_hand_appendage(self, person, appendage_type, scale_factor, x_offset, y_offset, rotation, bidirectional_scale):
+    def _edit_hand_appendage(
+        self,
+        person,
+        appendage_type,
+        scale_factor,
+        x_offset,
+        y_offset,
+        rotation,
+        bidirectional_scale,
+    ):
         """Edit hand appendages using hand keypoints."""
-        keypoint_field = "hand_left_keypoints_2d" if appendage_type == "left_hand" else "hand_right_keypoints_2d"
+        keypoint_field = (
+            "hand_left_keypoints_2d"
+            if appendage_type == "left_hand"
+            else "hand_right_keypoints_2d"
+        )
 
         if keypoint_field not in person or not person[keypoint_field]:
             return
@@ -366,15 +505,32 @@ class AppendageEditorNode:
                 return
 
         # Apply transformations
-        new_keypoints = self._apply_transformations(keypoints, scale_factor, x_offset, y_offset, rotation, pivot, bidirectional_scale)
+        new_keypoints = self._apply_transformations(
+            keypoints,
+            scale_factor,
+            x_offset,
+            y_offset,
+            rotation,
+            pivot,
+            bidirectional_scale,
+        )
         person[keypoint_field] = new_keypoints
 
-    def _edit_body_appendage(self, person, appendage_type, scale_factor, x_offset, y_offset, rotation, bidirectional_scale):
+    def _edit_body_appendage(
+        self,
+        person,
+        appendage_type,
+        scale_factor,
+        x_offset,
+        y_offset,
+        rotation,
+        bidirectional_scale,
+    ):
         """Edit body appendages (arms, legs, feet) using body pose keypoints."""
-        if 'pose_keypoints_2d' not in person or not person['pose_keypoints_2d']:
+        if "pose_keypoints_2d" not in person or not person["pose_keypoints_2d"]:
             return
 
-        keypoints = person['pose_keypoints_2d']
+        keypoints = person["pose_keypoints_2d"]
         if not isinstance(keypoints, list):
             return
 
@@ -384,7 +540,9 @@ class AppendageEditorNode:
             return
 
         # Calculate pivot point for the appendage
-        pivot = self._calculate_appendage_pivot(keypoints, appendage_indices, pivot_index)
+        pivot = self._calculate_appendage_pivot(
+            keypoints, appendage_indices, pivot_index
+        )
         if pivot is None:
             return
 
@@ -394,10 +552,10 @@ class AppendageEditorNode:
         for i in range(0, len(keypoints), 3):
             if i + 2 >= len(keypoints):
                 break
-                
+
             keypoint_idx = i // 3
             if keypoint_idx in appendage_indices:
-                x, y, conf = keypoints[i], keypoints[i+1], keypoints[i+2]
+                x, y, conf = keypoints[i], keypoints[i + 1], keypoints[i + 2]
 
                 if conf > 0:
                     # Apply rotation
@@ -415,16 +573,18 @@ class AppendageEditorNode:
                             x, y = scaled_point[0], scaled_point[1]
                         else:
                             # Unidirectional scaling - only scale away from body
-                            x, y = self._apply_unidirectional_scale([x, y], scale_factor, pivot, keypoint_idx, pivot_index)
+                            x, y = self._apply_unidirectional_scale(
+                                [x, y], scale_factor, pivot, keypoint_idx, pivot_index
+                            )
 
                     # Apply offset
                     x += x_offset
                     y += y_offset
 
                 new_keypoints[i] = x
-                new_keypoints[i+1] = y
+                new_keypoints[i + 1] = y
 
-        person['pose_keypoints_2d'] = new_keypoints
+        person["pose_keypoints_2d"] = new_keypoints
 
     def _get_appendage_indices(self, appendage_type):
         """Get OpenPose keypoint indices for specific appendages and their pivot points."""
@@ -434,28 +594,37 @@ class AppendageEditorNode:
 
         appendage_map = {
             # Arms - COCO format
-            "left_upper_arm": ([5, 6], 5),          # LShoulder, LElbow (pivot: shoulder)
-            "left_forearm": ([6, 7], 6),            # LElbow, LWrist (pivot: elbow)
-            "left_full_arm": ([5, 6, 7], 5),        # LShoulder, LElbow, LWrist (pivot: shoulder)
-            "right_upper_arm": ([2, 3], 2),         # RShoulder, RElbow (pivot: shoulder)
-            "right_forearm": ([3, 4], 3),           # RElbow, RWrist (pivot: elbow)
-            "right_full_arm": ([2, 3, 4], 2),       # RShoulder, RElbow, RWrist (pivot: shoulder)
-
+            "left_upper_arm": ([5, 6], 5),  # LShoulder, LElbow (pivot: shoulder)
+            "left_forearm": ([6, 7], 6),  # LElbow, LWrist (pivot: elbow)
+            "left_full_arm": (
+                [5, 6, 7],
+                5,
+            ),  # LShoulder, LElbow, LWrist (pivot: shoulder)
+            "right_upper_arm": ([2, 3], 2),  # RShoulder, RElbow (pivot: shoulder)
+            "right_forearm": ([3, 4], 3),  # RElbow, RWrist (pivot: elbow)
+            "right_full_arm": (
+                [2, 3, 4],
+                2,
+            ),  # RShoulder, RElbow, RWrist (pivot: shoulder)
             # Legs - COCO format (FIXED!)
-            "left_upper_leg": ([11, 12], 11),       # LHip, LKnee (pivot: hip)
-            "left_lower_leg": ([12, 13], 12),       # LKnee, LAnkle (pivot: knee) - FIXED: was [13,14] which was LAnkle,REye!
-            "left_full_leg": ([11, 12, 13], 11),    # LHip, LKnee, LAnkle (pivot: hip)
-            "right_upper_leg": ([8, 9], 8),         # RHip, RKnee (pivot: hip)
-            "right_lower_leg": ([9, 10], 9),        # RKnee, RAnkle (pivot: knee)
-            "right_full_leg": ([8, 9, 10], 8),      # RHip, RKnee, RAnkle (pivot: hip)
-
+            "left_upper_leg": ([11, 12], 11),  # LHip, LKnee (pivot: hip)
+            "left_lower_leg": (
+                [12, 13],
+                12,
+            ),  # LKnee, LAnkle (pivot: knee) - FIXED: was [13,14] which was LAnkle,REye!
+            "left_full_leg": ([11, 12, 13], 11),  # LHip, LKnee, LAnkle (pivot: hip)
+            "right_upper_leg": ([8, 9], 8),  # RHip, RKnee (pivot: hip)
+            "right_lower_leg": ([9, 10], 9),  # RKnee, RAnkle (pivot: knee)
+            "right_full_leg": ([8, 9, 10], 8),  # RHip, RKnee, RAnkle (pivot: hip)
             # Feet - COCO format (no foot keypoints in COCO, use ankle only)
-            "left_foot": ([13], 13),                # LAnkle only (pivot: ankle)
-            "right_foot": ([10], 10),               # RAnkle only (pivot: ankle)
-
+            "left_foot": ([13], 13),  # LAnkle only (pivot: ankle)
+            "right_foot": ([10], 10),  # RAnkle only (pivot: ankle)
             # Torso and Shoulders - COCO format
-            "torso": ([1, 2, 5, 8, 11], 1),         # Neck, RShoulder, LShoulder, RHip, LHip (pivot: neck)
-            "shoulders": ([2, 5], 1),               # RShoulder, LShoulder (pivot: neck)
+            "torso": (
+                [1, 2, 5, 8, 11],
+                1,
+            ),  # Neck, RShoulder, LShoulder, RHip, LHip (pivot: neck)
+            "shoulders": ([2, 5], 1),  # RShoulder, LShoulder (pivot: neck)
         }
 
         result = appendage_map.get(appendage_type, ([], None))
@@ -466,15 +635,15 @@ class AppendageEditorNode:
         if pivot_index is not None:
             # Use specific pivot point (e.g., shoulder for upper arm, elbow for forearm)
             i = pivot_index * 3
-            if len(keypoints) > i+2 and i >= 0 and keypoints[i+2] > 0:
-                return [keypoints[i], keypoints[i+1]]
+            if len(keypoints) > i + 2 and i >= 0 and keypoints[i + 2] > 0:
+                return [keypoints[i], keypoints[i + 1]]
 
         # Fallback to center of mass if pivot point not available
         valid_points = []
         for idx in appendage_indices:
             i = idx * 3
-            if len(keypoints) > i+2 and i >= 0 and keypoints[i+2] > 0:
-                valid_points.append([keypoints[i], keypoints[i+1]])
+            if len(keypoints) > i + 2 and i >= 0 and keypoints[i + 2] > 0:
+                valid_points.append([keypoints[i], keypoints[i + 1]])
 
         if not valid_points:
             return None
@@ -483,7 +652,9 @@ class AppendageEditorNode:
         pivot_y = sum(p[1] for p in valid_points) / len(valid_points)
         return [pivot_x, pivot_y]
 
-    def _apply_unidirectional_scale(self, point, scale_factor, pivot, keypoint_idx, pivot_index):
+    def _apply_unidirectional_scale(
+        self, point, scale_factor, pivot, keypoint_idx, pivot_index
+    ):
         """Apply scaling only in the direction away from the body/pivot."""
         x, y = point
 
@@ -496,7 +667,7 @@ class AppendageEditorNode:
         dy = y - pivot[1]
 
         # Scale only the distance, keeping direction
-        distance = math.sqrt(dx*dx + dy*dy)
+        distance = math.sqrt(dx * dx + dy * dy)
         if distance > 0:
             new_distance = distance * scale_factor
             scale_ratio = new_distance / distance
@@ -511,8 +682,8 @@ class AppendageEditorNode:
         """Calculate center of mass from valid keypoints."""
         valid_points = []
         for i in range(0, len(keypoints), 3):
-            if len(keypoints) > i+2 and i >= 0 and keypoints[i+2] > 0:
-                valid_points.append([keypoints[i], keypoints[i+1]])
+            if len(keypoints) > i + 2 and i >= 0 and keypoints[i + 2] > 0:
+                valid_points.append([keypoints[i], keypoints[i + 1]])
 
         if not valid_points:
             return None
@@ -521,12 +692,21 @@ class AppendageEditorNode:
         pivot_y = sum(p[1] for p in valid_points) / len(valid_points)
         return [pivot_x, pivot_y]
 
-    def _apply_transformations(self, keypoints, scale_factor, x_offset, y_offset, rotation, pivot, bidirectional_scale):
+    def _apply_transformations(
+        self,
+        keypoints,
+        scale_factor,
+        x_offset,
+        y_offset,
+        rotation,
+        pivot,
+        bidirectional_scale,
+    ):
         """Apply transformations to all keypoints."""
         new_keypoints = []
         for i in range(0, len(keypoints), 3):
-            if len(keypoints) > i+2:
-                x, y, conf = keypoints[i], keypoints[i+1], keypoints[i+2]
+            if len(keypoints) > i + 2:
+                x, y, conf = keypoints[i], keypoints[i + 1], keypoints[i + 2]
 
                 if conf > 0:
                     # Apply rotation
@@ -544,7 +724,9 @@ class AppendageEditorNode:
                             x, y = scaled_point[0], scaled_point[1]
                         else:
                             # For hands, use unidirectional scaling from wrist
-                            x, y = self._apply_unidirectional_scale([x, y], scale_factor, pivot, i//3, 0)
+                            x, y = self._apply_unidirectional_scale(
+                                [x, y], scale_factor, pivot, i // 3, 0
+                            )
 
                     # Apply offset
                     x += x_offset
