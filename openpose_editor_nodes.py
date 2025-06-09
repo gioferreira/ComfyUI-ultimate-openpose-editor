@@ -48,7 +48,7 @@ class OpenposeEditorNode:
                         "default": 0.0,  # Changed to float
                         "min": -2048.0,  # Changed to float
                         "max": 2048.0,  # Changed to float
-                        "step": 0.1,  # Changed to a smaller step for finer control
+                        "step": 0.01,  # Changed to a smaller step for finer control
                         "tooltip": "Shift the entire pose horizontally (in pixels)",
                     },
                 ),
@@ -58,7 +58,7 @@ class OpenposeEditorNode:
                         "default": 0.0,  # Changed to float
                         "min": -2048.0,  # Changed to float
                         "max": 2048.0,  # Changed to float
-                        "step": 0.1,  # Changed to a smaller step for finer control
+                        "step": 0.01,  # Changed to a smaller step for finer control
                         "tooltip": "Shift the entire pose vertically (in pixels)",
                     },
                 ),
