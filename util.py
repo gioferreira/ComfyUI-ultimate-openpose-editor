@@ -362,6 +362,15 @@ def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, po
                                     f.append(p_scaled)
                             faces.append(f)
 
+                        # Also move head-related body keypoints with the neck offset
+                        if original_neck and (neck_offset[0] != 0 or neck_offset[1] != 0):
+                            head_keypoint_indices = [0, 14, 15, 16, 17]  # nose, eyes, ears
+                            for head_idx in head_keypoint_indices:
+                                i = head_idx * 3
+                                if len(body_scaled) > i + 2 and body_scaled[i+2] > 0:  # valid keypoint
+                                    body_scaled[i] += neck_offset[0]      # x
+                                    body_scaled[i+1] += neck_offset[1]    # y
+
                         # Apply hand scaling with wrist tracking
                         if lhand and isinstance(lhand, list):
                             lh = []
