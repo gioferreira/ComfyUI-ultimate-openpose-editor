@@ -68,6 +68,10 @@ class OpenposeEditorNode:
                 }),
                 "POSE_JSON": ("STRING", {"multiline": True}),
                 "POSE_KEYPOINT": ("POSE_KEYPOINT",{"default": None}),
+                "auto_fix_connections": ("BOOLEAN", {
+                    "default": True,
+                    "tooltip": "Automatically keep hands attached to wrists and head attached to neck when using different scale values"
+                }),
             },
         }
 
@@ -77,7 +81,7 @@ class OpenposeEditorNode:
     FUNCTION = "load_pose"
     CATEGORY = "ultimate-openpose"
 
-    def load_pose(self, show_body, show_face, show_hands, resolution_x, pose_marker_size, face_marker_size, hand_marker_size, hands_scale, body_scale, head_scale, overall_scale, scalelist_behavior, match_scalelist_method, only_scale_pose_index, POSE_JSON: str, POSE_KEYPOINT=None) -> tuple[OpenposeJSON]:
+    def load_pose(self, show_body, show_face, show_hands, resolution_x, pose_marker_size, face_marker_size, hand_marker_size, hands_scale, body_scale, head_scale, overall_scale, scalelist_behavior, match_scalelist_method, only_scale_pose_index, POSE_JSON: str, POSE_KEYPOINT=None, auto_fix_connections=True) -> tuple[OpenposeJSON]:
         '''
         priority output is: POSE_JSON > POSE_KEYPOINT
         priority edit is: POSE_KEYPOINT > POSE_JSON
@@ -108,7 +112,7 @@ class OpenposeEditorNode:
                     hands_scalelist, body_scalelist, head_scalelist, overall_scalelist = extend_scalelist(
                         scalelist_behavior, POSE_PASS, hands_scale, body_scale, head_scale, overall_scale,
                         match_scalelist_method, only_scale_pose_index)
-                    pose_imgs, POSE_PASS = draw_pose_json(POSE_PASS, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist)
+                    pose_imgs, POSE_PASS = draw_pose_json(POSE_PASS, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist, auto_fix_connections)
                 except Exception as e:
                     print(f"Error processing POSE_KEYPOINT: {e}")
                     POSE_PASS = POSE_JSON
@@ -118,7 +122,7 @@ class OpenposeEditorNode:
                 hands_scalelist, body_scalelist, head_scalelist, overall_scalelist = extend_scalelist(
                     scalelist_behavior, POSE_JSON, hands_scale, body_scale, head_scale, overall_scale,
                     match_scalelist_method, only_scale_pose_index)
-                pose_imgs, POSE_JSON_SCALED = draw_pose_json(POSE_JSON, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist)
+                pose_imgs, POSE_JSON_SCALED = draw_pose_json(POSE_JSON, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist, auto_fix_connections)
                 
                 if pose_imgs:
                     pose_imgs_np = np.array(pose_imgs).astype(np.float32) / 255
@@ -136,7 +140,7 @@ class OpenposeEditorNode:
                     scalelist_behavior, POSE_JSON, hands_scale, body_scale, head_scale, overall_scale,
                     match_scalelist_method, only_scale_pose_index)
                 normalized_pose_json = pose_normalized(POSE_JSON)
-                pose_imgs, POSE_SCALED = draw_pose_json(normalized_pose_json, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist)
+                pose_imgs, POSE_SCALED = draw_pose_json(normalized_pose_json, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist, auto_fix_connections)
                 
                 if pose_imgs:
                     pose_imgs_np = np.array(pose_imgs).astype(np.float32) / 255

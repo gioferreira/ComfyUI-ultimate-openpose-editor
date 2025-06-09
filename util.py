@@ -206,7 +206,15 @@ def scale(point, scale_factor, pivot):
         return point
     return [(point[i] - pivot[i])*scale_factor + pivot[i] for i in range(min(len(point), len(pivot)))]
 
-def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist):
+def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, pose_marker_size, face_marker_size, hand_marker_size, hands_scalelist, body_scalelist, head_scalelist, overall_scalelist, auto_fix_connections=True):
+    """
+    Draw pose JSON with optional automatic hand and head tracking.
+    
+    Args:
+        auto_fix_connections (bool): If True, automatically moves hands to follow wrists 
+                                   and head to follow neck when different scales are applied.
+                                   If False, uses the original behavior.
+    """
     pose_imgs = []
     pose_scaled = []
 
@@ -280,87 +288,199 @@ def draw_pose_json(pose_json, resolution_x, show_body, show_face, show_hands, po
                     rhand = figure['hand_right_keypoints_2d']
                     rhand_scaled = rhand.copy() if rhand and isinstance(rhand, list) else []
 
-                face_offset = [0, 0]
-                lhand_offset = [0, 0]
-                rhand_offset = [0, 0]
+                if auto_fix_connections:
+                    # NEW TRACKING SYSTEM: Store original positions before scaling
+                    original_neck = None
+                    original_left_wrist = None
+                    original_right_wrist = None
+                    
+                    if body and isinstance(body, list) and len(body) >= 3:
+                        # Store original neck position (index 1 = neck)
+                        if len(body) > 1*3 + 2 and body[1*3+2] > 0:
+                            original_neck = [body[1*3], body[1*3+1]]
+                        
+                        # Store original wrist positions
+                        if len(body) > 7*3 + 2 and body[7*3+2] > 0:  # left wrist
+                            original_left_wrist = [body[7*3], body[7*3+1]]
+                        if len(body) > 4*3 + 2 and body[4*3+2] > 0:  # right wrist
+                            original_right_wrist = [body[4*3], body[4*3+1]]
 
-                overall_pivot = [0.5, 0.5]
-                lhand_pivot = [0.25, 0.5]
-                rhand_pivot = [0.75, 0.5]
-                face_pivot = [0.5, 0.5]
+                    overall_pivot = [0.5, 0.5]
 
-                if body and isinstance(body, list) and len(body) >= 3:
-                    candidate_start_idx = len(candidate)
+                    # Apply body scaling first
+                    if body and isinstance(body, list) and len(body) >= 3:
+                        candidate_start_idx = len(candidate)
 
-                    for i in range(0, len(body), 3):
-                        if i + 1 < len(body):
-                            p_scaled = scale(body[i:i+2], body_scale, overall_pivot)
-                            p_scaled = scale(p_scaled, overall_scale, overall_pivot)
-                            if i + 1 < len(body_scaled):
-                                body_scaled[i:i+2] = p_scaled
-                            candidate.append(p_scaled)
+                        for i in range(0, len(body), 3):
+                            if i + 1 < len(body):
+                                p_scaled = scale(body[i:i+2], body_scale, overall_pivot)
+                                p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                if i + 1 < len(body_scaled):
+                                    body_scaled[i:i+2] = p_scaled
+                                candidate.append(p_scaled)
 
-                    figure_head_idx = candidate_start_idx
-                    if figure_head_idx < len(candidate) and len(body) >= 2:
-                        factor = 0.8
-                        face_offset = [(candidate[figure_head_idx][0] - body[0])*factor, (candidate[figure_head_idx][1] - body[1])*factor]
-                        face_pivot = candidate[figure_head_idx]
+                        # Calculate how much neck and wrists moved after body scaling
+                        neck_offset = [0, 0]
+                        left_wrist_offset = [0, 0]
+                        right_wrist_offset = [0, 0]
+                        
+                        if original_neck and len(body_scaled) > 1*3 + 1:
+                            new_neck = [body_scaled[1*3], body_scaled[1*3+1]]
+                            neck_offset = [new_neck[0] - original_neck[0], new_neck[1] - original_neck[1]]
+                        
+                        if original_left_wrist and len(body_scaled) > 7*3 + 1:
+                            new_left_wrist = [body_scaled[7*3], body_scaled[7*3+1]]
+                            left_wrist_offset = [new_left_wrist[0] - original_left_wrist[0], new_left_wrist[1] - original_left_wrist[1]]
+                        
+                        if original_right_wrist and len(body_scaled) > 4*3 + 1:
+                            new_right_wrist = [body_scaled[4*3], body_scaled[4*3+1]]
+                            right_wrist_offset = [new_right_wrist[0] - original_right_wrist[0], new_right_wrist[1] - original_right_wrist[1]]
 
-                    wrist_left_idx = candidate_start_idx + 7
-                    wrist_right_idx = candidate_start_idx + 4
+                        # Apply head scaling with neck tracking
+                        if face and isinstance(face, list):
+                            f = []
+                            # Use the new neck position as pivot for face scaling
+                            face_pivot = [body_scaled[1*3], body_scaled[1*3+1]] if len(body_scaled) > 1*3 + 1 else [0.5, 0.5]
+                            
+                            for i in range(0, len(face), 3):
+                                if i + 1 < len(face):
+                                    p = face[i:i+2]
+                                    # First apply the neck offset to move face with the body
+                                    p_moved = [p[0] + neck_offset[0], p[1] + neck_offset[1]]
+                                    # Then apply head scaling around the new neck position
+                                    p_scaled = scale(p_moved, head_scale, face_pivot)
+                                    p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                    if i + 1 < len(face_scaled):
+                                        face_scaled[i:i+2] = p_scaled
+                                    f.append(p_scaled)
+                            faces.append(f)
 
-                    if wrist_left_idx < len(candidate) and len(body) > 22:
-                        lhand_offset = [candidate[wrist_left_idx][0] - body[21], candidate[wrist_left_idx][1] - body[22]]
-                        lhand_pivot = candidate[wrist_left_idx]
+                        # Apply hand scaling with wrist tracking
+                        if lhand and isinstance(lhand, list):
+                            lh = []
+                            # Use the new left wrist position as pivot for left hand scaling
+                            lhand_pivot = [body_scaled[7*3], body_scaled[7*3+1]] if len(body_scaled) > 7*3 + 1 else [0.25, 0.5]
+                            
+                            for i in range(0, len(lhand), 3):
+                                if i + 1 < len(lhand):
+                                    p = lhand[i:i+2]
+                                    # First apply the wrist offset to move hand with the arm
+                                    p_moved = [p[0] + left_wrist_offset[0], p[1] + left_wrist_offset[1]]
+                                    # Then apply hand scaling around the new wrist position
+                                    p_scaled = scale(p_moved, hands_scale, lhand_pivot)
+                                    p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                    if i + 1 < len(lhand_scaled):
+                                        lhand_scaled[i:i+2] = p_scaled
+                                    lh.append(p_scaled)
+                            hands.append(lh)
 
-                    if wrist_right_idx < len(candidate) and len(body) > 13:
-                        rhand_offset = [candidate[wrist_right_idx][0] - body[12], candidate[wrist_right_idx][1] - body[13]]
-                        rhand_pivot = candidate[wrist_right_idx]
+                        if rhand and isinstance(rhand, list):
+                            rh = []
+                            # Use the new right wrist position as pivot for right hand scaling
+                            rhand_pivot = [body_scaled[4*3], body_scaled[4*3+1]] if len(body_scaled) > 4*3 + 1 else [0.75, 0.5]
+                            
+                            for i in range(0, len(rhand), 3):
+                                if i + 1 < len(rhand):
+                                    p = rhand[i:i+2]
+                                    # First apply the wrist offset to move hand with the arm
+                                    p_moved = [p[0] + right_wrist_offset[0], p[1] + right_wrist_offset[1]]
+                                    # Then apply hand scaling around the new wrist position
+                                    p_scaled = scale(p_moved, hands_scale, rhand_pivot)
+                                    p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                    if i + 1 < len(rhand_scaled):
+                                        rhand_scaled[i:i+2] = p_scaled
+                                    rh.append(p_scaled)
+                            hands.append(rh)
 
-                    if not subset[0]:
-                        subset[0].extend([candidate_start_idx+(i//3) if i+2 < len(body) and body[i+2]>0 else -1 for i in range(0,len(body),3)])
-                    else:
-                        new_subset = [candidate_start_idx+(i//3) if i+2 < len(body) and body[i+2]>0 else -1 for i in range(0,len(body),3)]
-                        subset.append(new_subset)
+                        if not subset[0]:
+                            subset[0].extend([candidate_start_idx+(i//3) if i+2 < len(body) and body[i+2]>0 else -1 for i in range(0,len(body),3)])
+                        else:
+                            new_subset = [candidate_start_idx+(i//3) if i+2 < len(body) and body[i+2]>0 else -1 for i in range(0,len(body),3)]
+                            subset.append(new_subset)
 
-                if face and isinstance(face, list):
-                    f = []
-                    for i in range(0, len(face), 3):
-                        if i + 1 < len(face):
-                            p = face[i:i+2]
-                            p_offset = [p[0] + face_offset[0], p[1] + face_offset[1]]
-                            p_scaled = scale(p_offset, head_scale, face_pivot)
-                            p_scaled = scale(p_scaled, overall_scale, overall_pivot)
-                            if i + 1 < len(face_scaled):
-                                face_scaled[i:i+2] = p_scaled
-                            f.append(p_scaled)
-                    faces.append(f)
+                else:
+                    # ORIGINAL SYSTEM: Keep the old behavior for backward compatibility
+                    face_offset = [0, 0]
+                    lhand_offset = [0, 0]
+                    rhand_offset = [0, 0]
 
-                if lhand and isinstance(lhand, list):
-                    lh = []
-                    for i in range(0, len(lhand), 3):
-                        if i + 1 < len(lhand):
-                            p = lhand[i:i+2]
-                            p_offset = [p[0] + lhand_offset[0], p[1] + lhand_offset[1]]
-                            p_scaled = scale(p_offset, hands_scale, lhand_pivot)
-                            p_scaled = scale(p_scaled, overall_scale, overall_pivot)
-                            if i + 1 < len(lhand_scaled):
-                                lhand_scaled[i:i+2] = p_scaled
-                            lh.append(p_scaled)
-                    hands.append(lh)
+                    overall_pivot = [0.5, 0.5]
+                    lhand_pivot = [0.25, 0.5]
+                    rhand_pivot = [0.75, 0.5]
+                    face_pivot = [0.5, 0.5]
 
-                if rhand and isinstance(rhand, list):
-                    rh = []
-                    for i in range(0, len(rhand), 3):
-                        if i + 1 < len(rhand):
-                            p = rhand[i:i+2]
-                            p_offset = [p[0] + rhand_offset[0], p[1] + rhand_offset[1]]
-                            p_scaled = scale(p_offset, hands_scale, rhand_pivot)
-                            p_scaled = scale(p_scaled, overall_scale, overall_pivot)
-                            if i + 1 < len(rhand_scaled):
-                                rhand_scaled[i:i+2] = p_scaled
-                            rh.append(p_scaled)
-                    hands.append(rh)
+                    if body and isinstance(body, list) and len(body) >= 3:
+                        candidate_start_idx = len(candidate)
+
+                        for i in range(0, len(body), 3):
+                            if i + 1 < len(body):
+                                p_scaled = scale(body[i:i+2], body_scale, overall_pivot)
+                                p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                if i + 1 < len(body_scaled):
+                                    body_scaled[i:i+2] = p_scaled
+                                candidate.append(p_scaled)
+
+                        figure_head_idx = candidate_start_idx
+                        if figure_head_idx < len(candidate) and len(body) >= 2:
+                            factor = 0.8
+                            face_offset = [(candidate[figure_head_idx][0] - body[0])*factor, (candidate[figure_head_idx][1] - body[1])*factor]
+                            face_pivot = candidate[figure_head_idx]
+
+                        wrist_left_idx = candidate_start_idx + 7
+                        wrist_right_idx = candidate_start_idx + 4
+
+                        if wrist_left_idx < len(candidate) and len(body) > 22:
+                            lhand_offset = [candidate[wrist_left_idx][0] - body[21], candidate[wrist_left_idx][1] - body[22]]
+                            lhand_pivot = candidate[wrist_left_idx]
+
+                        if wrist_right_idx < len(candidate) and len(body) > 13:
+                            rhand_offset = [candidate[wrist_right_idx][0] - body[12], candidate[wrist_right_idx][1] - body[13]]
+                            rhand_pivot = candidate[wrist_right_idx]
+
+                        if not subset[0]:
+                            subset[0].extend([candidate_start_idx+(i//3) if i+2 < len(body) and body[i+2]>0 else -1 for i in range(0,len(body),3)])
+                        else:
+                            new_subset = [candidate_start_idx+(i//3) if i+2 < len(body) and body[i+2]>0 else -1 for i in range(0,len(body),3)]
+                            subset.append(new_subset)
+
+                    if face and isinstance(face, list):
+                        f = []
+                        for i in range(0, len(face), 3):
+                            if i + 1 < len(face):
+                                p = face[i:i+2]
+                                p_offset = [p[0] + face_offset[0], p[1] + face_offset[1]]
+                                p_scaled = scale(p_offset, head_scale, face_pivot)
+                                p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                if i + 1 < len(face_scaled):
+                                    face_scaled[i:i+2] = p_scaled
+                                f.append(p_scaled)
+                        faces.append(f)
+
+                    if lhand and isinstance(lhand, list):
+                        lh = []
+                        for i in range(0, len(lhand), 3):
+                            if i + 1 < len(lhand):
+                                p = lhand[i:i+2]
+                                p_offset = [p[0] + lhand_offset[0], p[1] + lhand_offset[1]]
+                                p_scaled = scale(p_offset, hands_scale, lhand_pivot)
+                                p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                if i + 1 < len(lhand_scaled):
+                                    lhand_scaled[i:i+2] = p_scaled
+                                lh.append(p_scaled)
+                        hands.append(lh)
+
+                    if rhand and isinstance(rhand, list):
+                        rh = []
+                        for i in range(0, len(rhand), 3):
+                            if i + 1 < len(rhand):
+                                p = rhand[i:i+2]
+                                p_offset = [p[0] + rhand_offset[0], p[1] + rhand_offset[1]]
+                                p_scaled = scale(p_offset, hands_scale, rhand_pivot)
+                                p_scaled = scale(p_scaled, overall_scale, overall_pivot)
+                                if i + 1 < len(rhand_scaled):
+                                    rhand_scaled[i:i+2] = p_scaled
+                                rh.append(p_scaled)
+                        hands.append(rh)
                     
                 openpose_json.append(dict(pose_keypoints_2d=body_scaled, face_keypoints_2d=face_scaled, hand_left_keypoints_2d=lhand_scaled, hand_right_keypoints_2d=rhand_scaled))
 
