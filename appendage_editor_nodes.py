@@ -119,6 +119,10 @@ class AppendageEditorNode:
                     "tooltip": "Person to edit (-1 for all people)"
                 }),
                 "list_mismatch_behavior": (["truncate", "loop", "repeat"], {"default": "loop", "tooltip": "Truncate: Truncate the list to the shortest length. Loop: Loop the list to the longest length. Repeat: Repeat the list to the longest length."}),
+                "auto_fix_hands": ("BOOLEAN", {
+                    "default": True,
+                    "tooltip": "Automatically move hands to follow wrist position when editing arms"
+                }),
             },
         }
 
@@ -127,7 +131,7 @@ class AppendageEditorNode:
     FUNCTION = "edit_appendage"
     CATEGORY = "ultimate-openpose"
 
-    def edit_appendage(self, POSE_KEYPOINT, appendage_type, scale=1.0, x_offset=0.0, y_offset=0.0, rotation=0.0, bidirectional_scale=False, person_index=-1, list_mismatch_behavior="loop"):
+    def edit_appendage(self, POSE_KEYPOINT, appendage_type, scale=1.0, x_offset=0.0, y_offset=0.0, rotation=0.0, bidirectional_scale=False, person_index=-1, list_mismatch_behavior="loop", auto_fix_hands=True):
         if POSE_KEYPOINT is None:
             return (None,)
 
@@ -190,14 +194,90 @@ class AppendageEditorNode:
                     if not person or not isinstance(person, dict):
                         continue
 
+                    # Store original wrist positions before editing arms
+                    original_wrists = None
+                    if auto_fix_hands and self._is_arm_appendage(appendage_type):
+                        original_wrists = self._get_wrist_positions(person)
+
                     if appendage_type in ["left_hand", "right_hand"]:
                         self._edit_hand_appendage(person, appendage_type, current_scale, current_x_offset, current_y_offset, current_rotation, bidirectional_scale)
                     else:
                         self._edit_body_appendage(person, appendage_type, current_scale, current_x_offset, current_y_offset, current_rotation, bidirectional_scale)
 
+                    # Fix hand positions after arm editing
+                    if auto_fix_hands and self._is_arm_appendage(appendage_type) and original_wrists:
+                        self._fix_hand_positions(person, original_wrists, appendage_type)
+
             output_pose_data.append(current_frame)
 
         return (output_pose_data,)
+
+    def _is_arm_appendage(self, appendage_type):
+        """Check if the appendage type affects arms (and thus wrist positions)."""
+        arm_types = ["left_upper_arm", "left_forearm", "left_full_arm", 
+                     "right_upper_arm", "right_forearm", "right_full_arm"]
+        return appendage_type in arm_types
+
+    def _get_wrist_positions(self, person):
+        """Get current wrist positions before arm editing."""
+        wrists = {}
+        if 'pose_keypoints_2d' in person and person['pose_keypoints_2d']:
+            keypoints = person['pose_keypoints_2d']
+            # COCO format: left wrist = index 7, right wrist = index 4
+            if len(keypoints) > 7*3 + 2:  # left wrist
+                wrists['left'] = [keypoints[7*3], keypoints[7*3+1], keypoints[7*3+2]]
+            if len(keypoints) > 4*3 + 2:  # right wrist
+                wrists['right'] = [keypoints[4*3], keypoints[4*3+1], keypoints[4*3+2]]
+        return wrists
+
+    def _fix_hand_positions(self, person, original_wrists, appendage_type):
+        """Adjust hand positions to follow the new wrist positions."""
+        if 'pose_keypoints_2d' not in person or not person['pose_keypoints_2d']:
+            return
+
+        keypoints = person['pose_keypoints_2d']
+        
+        # Determine which hands to fix based on appendage type
+        hands_to_fix = []
+        if 'left' in appendage_type:
+            hands_to_fix.append('left')
+        elif 'right' in appendage_type:
+            hands_to_fix.append('right')
+        else:
+            # For general arm types that might affect both sides
+            hands_to_fix = ['left', 'right']
+
+        for hand_side in hands_to_fix:
+            if hand_side not in original_wrists:
+                continue
+
+            # Get the wrist index for this side
+            wrist_idx = 7 if hand_side == 'left' else 4
+            hand_field = f'hand_{hand_side}_keypoints_2d'
+            
+            if len(keypoints) <= wrist_idx*3 + 2:
+                continue
+
+            # Calculate how much the wrist moved
+            original_wrist = original_wrists[hand_side]
+            new_wrist = [keypoints[wrist_idx*3], keypoints[wrist_idx*3+1], keypoints[wrist_idx*3+2]]
+            
+            # Only proceed if both wrists are valid (confidence > 0)
+            if original_wrist[2] <= 0 or new_wrist[2] <= 0:
+                continue
+
+            # Calculate the offset
+            dx = new_wrist[0] - original_wrist[0]
+            dy = new_wrist[1] - original_wrist[1]
+
+            # Apply offset to hand keypoints
+            if hand_field in person and person[hand_field] and isinstance(person[hand_field], list):
+                hand_keypoints = person[hand_field]
+                for i in range(0, len(hand_keypoints), 3):
+                    if i + 2 < len(hand_keypoints) and hand_keypoints[i+2] > 0:  # valid keypoint
+                        hand_keypoints[i] += dx      # x
+                        hand_keypoints[i+1] += dy    # y
+                        # confidence stays the same
 
     def _edit_hand_appendage(self, person, appendage_type, scale_factor, x_offset, y_offset, rotation, bidirectional_scale):
         """Edit hand appendages using hand keypoints."""
